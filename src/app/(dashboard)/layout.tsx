@@ -2,17 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, Users, ShoppingBag, Settings,
-  LogOut, Menu, X, Bell, Crown, Plus, Loader2, ChevronRight
+  LogOut, Menu, X, Bell, Crown, Plus, Loader2, ChevronRight,
+  FileText, Star
 } from 'lucide-react'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview',  href: '/dashboard' },
   { icon: Users,           label: 'Clients',   href: '/dashboard/customers' },
   { icon: ShoppingBag,     label: 'Orders',    href: '/dashboard/orders' },
+  { icon: FileText,        label: 'Invoices',  href: '/dashboard/invoices' },
+  { icon: Star,            label: 'Reviews',   href: '/dashboard/reviews' },
   { icon: Settings,        label: 'Settings',  href: '/dashboard/settings' },
 ]
 
@@ -138,14 +142,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Brand */}
         <div className="p-5 flex items-center justify-between" style={{ borderBottom: '1px solid #2d2540' }}>
-          <Link href="/" className="flex items-center gap-3 group min-w-0">
-            <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl" style={{ background: '#e91e8c' }}>
-              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" fill="white" stroke="none"/>
-                <path d="M8.5 6.5C7 7.5 6 9 6 11c0 2 1 3.5 2.5 4.5L8 20h8l-.5-4.5C17 14.5 18 13 18 11c0-2-1-3.5-2.5-4.5" />
-                <path d="M9 20v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1" />
-              </svg>
-            </div>
+          <Link href="/" className="flex items-center gap-1 group min-w-0">
+            <Image
+              src="/logo.png"
+              alt="StitchFlow"
+              width={48}
+              height={48}
+              className="object-contain flex-shrink-0"
+              style={{ filter: 'brightness(1.15) drop-shadow(0 2px 6px rgba(233,30,140,0.4))' }}
+            />
             <div className="min-w-0">
               <p className="text-sm font-bold text-white truncate leading-tight">
                 {loadingProfile ? 'Loading…' : (profile?.business_name || 'StitchFlow')}

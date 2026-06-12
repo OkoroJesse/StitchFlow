@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { getJobByToken, submitReview } from '@/actions/reviews'
 import { getSignedUrl } from '@/lib/supabase/storage'
 import { Button } from '@/components/shared/button'
@@ -224,9 +225,12 @@ export default function PublicReviewPage({ params }: { params: Promise<{ token: 
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-slate-600 uppercase tracking-widest pb-8">
-          Powered by StitchFlow for Professionals
-        </p>
+        <div className="flex items-center justify-center gap-1.5 pb-8">
+          <Image src="/logo.png" alt="StitchFlow" width={28} height={28} className="object-contain" style={{ filter: 'brightness(0.7)' }} />
+          <p className="text-[11px] text-slate-600 uppercase tracking-widest">
+            Powered by StitchFlow
+          </p>
+        </div>
       </div>
     </div>
   )

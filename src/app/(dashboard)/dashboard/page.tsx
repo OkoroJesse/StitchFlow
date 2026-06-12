@@ -10,10 +10,16 @@ export default async function DashboardPage() {
   const today = new Date()
   const in3Days = new Date(); in3Days.setDate(today.getDate() + 3)
 
+  // Get all job IDs for this business (needed for review count)
+  const { data: bizJobs } = await supabase
+    .from('jobs').select('id').eq('business_id', user.id)
+  const bizJobIds = (bizJobs || []).map(j => j.id)
+
   const [
     { count: clientCount },
     { count: activeOrderCount },
     { count: unpaidCount },
+    { count: reviewCount },
     { data: recentJobs },
     { data: urgentJobs },
     { data: recentCustomers },
@@ -21,6 +27,9 @@ export default async function DashboardPage() {
     supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', user.id),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('business_id', user.id).neq('status', 'delivered'),
     supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('business_id', user.id).eq('status', 'unpaid'),
+    bizJobIds.length > 0
+      ? supabase.from('reviews').select('*', { count: 'exact', head: true }).in('job_id', bizJobIds)
+      : Promise.resolve({ count: 0 }),
     supabase.from('jobs')
       .select('id, title, status, agreed_price, delivery_date, customers(id, full_name)')
       .eq('business_id', user.id)
@@ -43,8 +52,8 @@ export default async function DashboardPage() {
   const metrics = [
     { label: 'Clients', value: clientCount ?? 0, icon: Users, href: '/dashboard/customers', color: '#e91e8c', bg: 'rgba(233,30,140,0.08)' },
     { label: 'Active Orders', value: activeOrderCount ?? 0, icon: ShoppingBag, href: '/dashboard/orders', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' },
-    { label: 'Unpaid Invoices', value: unpaidCount ?? 0, icon: CreditCard, href: '/dashboard/orders', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
-    { label: 'Reviews', value: '—', icon: Star, href: '/dashboard/settings', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
+    { label: 'Unpaid Invoices', value: unpaidCount ?? 0, icon: CreditCard, href: '/dashboard/invoices', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
+    { label: 'Reviews', value: reviewCount ?? 0, icon: Star, href: '/dashboard/reviews', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
   ]
 
   const statusColors: Record<string, string> = {

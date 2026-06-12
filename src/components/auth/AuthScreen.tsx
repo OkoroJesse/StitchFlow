@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const inputClass = "block w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
 const inputStyle = { background: '#f8f7fc', border: '1.5px solid #ede9f6', color: '#1a1625' }
@@ -72,14 +73,8 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
         <div className="w-full lg:w-1/2 flex flex-col justify-center p-7 lg:p-10 relative z-10 overflow-y-auto">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 mb-6">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e91e8c' }}>
-              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" fill="white" stroke="none"/>
-                <path d="M8.5 6.5C7 7.5 6 9 6 11c0 2 1 3.5 2.5 4.5L8 20h8l-.5-4.5C17 14.5 18 13 18 11c0-2-1-3.5-2.5-4.5" />
-                <path d="M9 20v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1" />
-              </svg>
-            </div>
+          <Link href="/" className="flex items-center gap-1 mb-6">
+            <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 6px rgba(233,30,140,0.25))' }} />
             <span className="text-lg font-bold" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
           </Link>
 
@@ -194,8 +189,12 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
           <div className="absolute w-64 h-64 rounded-full opacity-20" style={{ background: '#e91e8c', top: '-10%', right: '-15%', filter: 'blur(60px)' }} />
           <div className="absolute w-48 h-48 rounded-full opacity-15" style={{ background: '#7c3aed', bottom: '-5%', left: '-10%', filter: 'blur(50px)' }} />
 
-          {/* SVG Dress Illustration */}
+          {/* Logo + Illustration */}
           <div className="relative z-10 flex flex-col items-center text-center px-10">
+            {/* Logo mark */}
+            <div className="mb-4 flex flex-col items-center">
+              <Image src="/logo.png" alt="StitchFlow" width={110} height={110} className="object-contain" style={{ filter: 'brightness(1.15) drop-shadow(0 4px 16px rgba(233,30,140,0.5))' }} />
+            </div>
             <div className="mb-6 flex justify-center">
               <div className="bg-white p-3 rounded-[2rem] shadow-2xl border border-gray-100/10 flex items-center justify-center w-[140px] sm:w-[160px] aspect-[2/3] transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                 <img src="/mannequin.png" alt="Designer Mannequin" className="w-full h-full object-contain" />

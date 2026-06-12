@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { CheckCircle, ArrowRight, Star, Zap, Shield } from 'lucide-react'
 
 export const metadata = {
@@ -97,13 +98,8 @@ export default function PricingPage() {
       <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8">
-                <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
-                  <path d="M16 2L20.5 8.5L28 7L24.5 14L30 19L23 20L22 28L16 24L10 28L9 20L2 19L7.5 14L4 7L11.5 8.5Z" fill="#C9A84C" opacity="0.9"/>
-                  <circle cx="16" cy="16" r="3" fill="white"/>
-                </svg>
-              </div>
+            <Link href="/" className="flex items-center gap-1">
+              <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(233,30,140,0.2))' }} />
               <span className="text-xl font-bold text-gray-900 tracking-tight">Stitch<span className="text-pink-600">Flow</span></span>
             </Link>
             <div className="flex items-center gap-3">

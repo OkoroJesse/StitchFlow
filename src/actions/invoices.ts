@@ -33,6 +33,7 @@ export async function createInvoice(jobId: string, customerId: string, totalAmou
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/invoices')
   revalidatePath('/dashboard/orders')
   revalidatePath(`/dashboard/customers/${customerId}`)
   return data
@@ -45,9 +46,10 @@ export async function getInvoices() {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, jobs(id, title, customers(id, full_name))')
+    .select('id, status, total_amount, created_at, due_date, jobs(id, title, customers(id, full_name))')
     .eq('business_id', user.id)
     .order('created_at', { ascending: false })
+
 
   if (error) return []
   return data
@@ -83,6 +85,7 @@ export async function updateInvoiceStatus(invoiceId: string, status: 'paid' | 'u
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/invoices')
   revalidatePath('/dashboard/orders')
   if (customerId) revalidatePath(`/dashboard/customers/${customerId}`)
 }

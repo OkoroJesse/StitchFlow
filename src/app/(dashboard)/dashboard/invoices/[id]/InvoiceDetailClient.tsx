@@ -2,6 +2,7 @@
 
 import React, { useTransition } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Printer, ArrowLeft, Check, CreditCard, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/shared/button'
@@ -104,13 +105,23 @@ export default function InvoiceDetailClient({ invoice }: Props) {
 
         {/* Header: Business Branding */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-gray-50 pb-10">
-          <div className="space-y-3">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e1b2e] uppercase">
-              {businessName}
-            </h1>
-            <p className="text-gray-400 text-sm font-semibold tracking-wider">
-              Bespoke Tailoring & Haute Couture
-            </p>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="StitchFlow"
+              width={64}
+              height={64}
+              className="object-contain flex-shrink-0"
+              style={{ filter: 'drop-shadow(0 2px 8px rgba(233,30,140,0.25))' }}
+            />
+            <div className="space-y-1">
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e1b2e] uppercase">
+                {businessName}
+              </h1>
+              <p className="text-gray-400 text-sm font-semibold tracking-wider">
+                Bespoke Tailoring &amp; Haute Couture
+              </p>
+            </div>
           </div>
           <div className="text-left sm:text-right space-y-1 shrink-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Invoice Ref</p>
@@ -213,9 +224,12 @@ export default function InvoiceDetailClient({ invoice }: Props) {
           <p className="text-sm font-bold uppercase tracking-wider text-[#1e1b2e]/60">
             Thank you for selecting us to design for you
           </p>
-          <p className="text-xs text-gray-400 italic">
-            Invoice generated automatically by StitchFlow &mdash; The operating system for bespoke fashion.
-          </p>
+          <div className="flex items-center justify-center gap-1.5">
+            <Image src="/logo.png" alt="StitchFlow" width={20} height={20} className="object-contain opacity-40" />
+            <p className="text-xs text-gray-400 italic">
+              Invoice generated automatically by StitchFlow &mdash; The operating system for bespoke fashion.
+            </p>
+          </div>
         </div>
       </div>
     </div>

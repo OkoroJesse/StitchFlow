@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, CheckCircle, Scissors, Users, BarChart3, CreditCard, Star, ChevronRight } from 'lucide-react'
 
 export default function HomePage() {
@@ -9,14 +10,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 w-full" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #ede9f6' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#e91e8c' }}>
-                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" fill="white" stroke="none"/>
-                  <path d="M8.5 6.5C7 7.5 6 9 6 11c0 2 1 3.5 2.5 4.5L8 20h8l-.5-4.5C17 14.5 18 13 18 11c0-2-1-3.5-2.5-4.5" />
-                  <path d="M9 20v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1" />
-                </svg>
-              </div>
+            <Link href="/" className="flex items-center gap-1 group">
+              <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(233,30,140,0.2))' }} />
               <span className="text-xl font-bold" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
             </Link>
 
@@ -300,13 +295,8 @@ export default function HomePage() {
       {/* ── FOOTER ── */}
       <footer className="py-10" style={{ background: '#1a1625', borderTop: '1px solid #2d2540' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#e91e8c' }}>
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" fill="white" stroke="none"/>
-                <path d="M8.5 6.5C7 7.5 6 9 6 11c0 2 1 3.5 2.5 4.5L8 20h8l-.5-4.5C17 14.5 18 13 18 11c0-2-1-3.5-2.5-4.5" />
-              </svg>
-            </div>
+          <div className="flex items-center gap-1">
+            <Image src="/logo.png" alt="StitchFlow" width={40} height={40} className="object-contain" style={{ filter: 'brightness(1.1) drop-shadow(0 1px 3px rgba(233,30,140,0.3))' }} />
             <span className="text-sm font-bold text-white">Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
           </div>
           <p className="text-xs" style={{ color: '#4b4568' }}>© 2024 StitchFlow. Built for African Fashion Entrepreneurs.</p>
