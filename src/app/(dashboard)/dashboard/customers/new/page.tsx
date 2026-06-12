@@ -19,8 +19,8 @@ export default function NewCustomerPage() {
 
     const formData = new FormData(e.currentTarget)
     try {
-      await addCustomer(formData)
-      router.push('/dashboard/customers')
+      const customer = await addCustomer(formData)
+      router.push(`/dashboard/customers/${customer.id}`)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

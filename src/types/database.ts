@@ -152,6 +152,76 @@ export interface Database {
           updated_at?: string
         }
       }
+      invoices: {
+        Row: {
+          id: string
+          business_id: string
+          job_id: string
+          customer_id: string | null
+          total_amount: number
+          status: 'paid' | 'unpaid' | 'partially_paid'
+          due_date: string | null
+          invoice_number: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          job_id: string
+          customer_id?: string | null
+          total_amount: number
+          status?: 'paid' | 'unpaid' | 'partially_paid'
+          due_date?: string | null
+          invoice_number?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          business_id?: string
+          job_id?: string
+          customer_id?: string | null
+          total_amount?: number
+          status?: 'paid' | 'unpaid' | 'partially_paid'
+          due_date?: string | null
+          invoice_number?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      reviews: {
+        Row: {
+          id: string
+          job_id: string
+          rating_fitting: number
+          rating_neatness: number
+          rating_delivery: number
+          comment: string | null
+          photo_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          rating_fitting: number
+          rating_neatness: number
+          rating_delivery: number
+          comment?: string | null
+          photo_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          rating_fitting?: number
+          rating_neatness?: number
+          rating_delivery?: number
+          comment?: string | null
+          photo_url?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }

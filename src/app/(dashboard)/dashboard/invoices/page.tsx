@@ -1,15 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { getInvoices } from '@/actions/invoices'
 import { FileText, Inbox, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function InvoicesPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: invoices } = await supabase
-    .from('invoices')
-    .select('*, jobs(title, customers(full_name))')
-    .eq('business_id', user?.id)
-    .order('created_at', { ascending: false })
+  const invoices = await getInvoices()
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -36,7 +30,7 @@ export default async function InvoicesPage() {
               invoices.map((inv) => (
                 <tr key={inv.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-10 py-6 font-bold text-gray-500 text-xs uppercase tracking-tighter">#INV-{inv.id.slice(0,8)}</td>
-                  <td className="px-10 py-6 font-bold text-gray-900 tracking-tight uppercase text-sm">{inv.jobs.customers.full_name}</td>
+                  <td className="px-10 py-6 font-bold text-gray-900 tracking-tight uppercase text-sm">{inv.jobs?.customers?.full_name || 'Unknown'}</td>
                   <td className="px-10 py-6 text-pink-600 font-bold">₦{inv.total_amount.toLocaleString()}</td>
                   <td className="px-10 py-6">
                     <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${
