@@ -39,8 +39,8 @@ interface Job {
   invoices?: Invoice[]
 }
 
-export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
-  const customerId = params.id
+export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: customerId } = await params
   const customer = await getCustomerById(customerId)
 
   if (!customer) {

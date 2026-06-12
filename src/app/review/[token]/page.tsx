@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getJobByToken, submitReview } from '@/actions/reviews'
 import { getSignedUrl } from '@/lib/supabase/storage'
 import { Button } from '@/components/shared/button'
@@ -19,7 +19,8 @@ interface JobReviewData {
   }[]
 }
 
-export default function PublicReviewPage({ params }: { params: { token: string } }) {
+export default function PublicReviewPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = React.use(params)
   const [job, setJob] = useState<JobReviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -39,7 +40,7 @@ export default function PublicReviewPage({ params }: { params: { token: string }
 
   useEffect(() => {
     async function loadJob() {
-      const data = await getJobByToken(params.token)
+      const data = await getJobByToken(token)
       if (data) {
         // Get signed URLs for images
         if (data.fabric_image_url) {
@@ -55,7 +56,7 @@ export default function PublicReviewPage({ params }: { params: { token: string }
       setLoading(false)
     }
     loadJob()
-  }, [params.token])
+  }, [token])
 
   const handleRating = (key: keyof typeof ratings, value: number) => {
     setRatings(prev => ({ ...prev, [key]: value }))
