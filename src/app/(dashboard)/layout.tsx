@@ -9,7 +9,7 @@ import { getSignedUrlClient } from '@/lib/supabase/storage-client'
 import {
   LayoutDashboard, Users, ShoppingBag, Settings,
   LogOut, Menu, X, Bell, Crown, Loader2, ChevronRight,
-  FileText, Star
+  FileText, Star, Plus
 } from 'lucide-react'
 
 const navItems = [
