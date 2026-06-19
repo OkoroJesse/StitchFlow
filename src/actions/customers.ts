@@ -13,7 +13,7 @@ export async function getCustomers() {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('*, jobs(id, status)')
+    .select('*, jobs(id, title, status, agreed_price, created_at, delivery_date)')
     .eq('business_id', user.id)
     .order('full_name', { ascending: true })
 

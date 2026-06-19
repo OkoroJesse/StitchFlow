@@ -25,6 +25,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 type Tier = 'free' | 'designer' | 'studio'
 
@@ -331,7 +332,9 @@ export default function SettingsPage() {
   const userInitial = profile?.business_name ? profile.business_name.charAt(0).toUpperCase() : 'S'
 
   return (
-    <div className="space-y-8 sm:space-y-10 animate-in fade-in duration-700 max-w-4xl pb-16">
+    <>
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+      <div className="space-y-8 sm:space-y-10 animate-in fade-in duration-700 max-w-4xl pb-16">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
@@ -734,5 +737,6 @@ export default function SettingsPage() {
         </button>
       </div>
     </div>
+    </>
   )
 }

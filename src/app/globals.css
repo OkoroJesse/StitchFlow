@@ -64,3 +64,40 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #e91e8c; }
+
+/* ─── Global Compact Overrides for Dashboard ─── */
+main input[type="text"], 
+main input[type="email"], 
+main input[type="password"], 
+main input[type="tel"], 
+main input[type="number"], 
+main select, 
+main textarea {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.75rem !important;
+}
+
+main h1 {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em !important;
+}
+
+main h2 {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+}
+
+main h3 {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+}
+
+/* Compact layout spacing */
+.space-y-8 {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+

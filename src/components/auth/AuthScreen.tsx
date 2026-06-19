@@ -47,22 +47,80 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
     e.preventDefault()
     setLoginLoading(true)
     setLoginError(null)
+
+    // Strict validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(loginEmail)) {
+      setLoginError('Please enter a valid email address.')
+      setLoginLoading(false)
+      return
+    }
+
+    if (loginPassword.length < 6) {
+      setLoginError('Password must be at least 6 characters long.')
+      setLoginLoading(false)
+      return
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword })
-    if (error) { setLoginError(error.message); setLoginLoading(false) }
-    else { router.push('/dashboard'); router.refresh() }
+    if (error) { 
+      setLoginError(error.message)
+      setLoginLoading(false) 
+    } else { 
+      router.push('/dashboard')
+      router.refresh() 
+    }
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setRegLoading(true)
     setRegError(null)
-    const { error } = await supabase.auth.signUp({
-      email: regEmail, password: regPassword,
-      options: { data: { business_name: regBusinessName } }
+
+    // Strict validation
+    if (regBusinessName.trim().length < 2) {
+      setRegError('Business name must be at least 2 characters.')
+      setRegLoading(false)
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(regEmail)) {
+      setRegError('Please enter a valid email address.')
+      setRegLoading(false)
+      return
+    }
+
+    if (regPassword.length < 6) {
+      setRegError('Password must be at least 6 characters long.')
+      setRegLoading(false)
+      return
+    }
+
+    const redirectUrl = `${window.location.origin}/auth/callback`
+
+    const { data, error } = await supabase.auth.signUp({
+      email: regEmail, 
+      password: regPassword,
+      options: { 
+        data: { business_name: regBusinessName.trim() },
+        emailRedirectTo: redirectUrl
+      }
     })
-    if (error) { setRegError(error.message); setRegLoading(false) }
-    else { setRegSuccess(true); setRegLoading(false) }
+
+    if (error) { 
+      setRegError(error.message)
+      setRegLoading(false) 
+    } else if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+      // Supabase returns successful sign up with empty identities if the email already exists
+      setRegError('This email is already registered. Please sign in instead.')
+      setRegLoading(false)
+    } else { 
+      setRegSuccess(true)
+      setRegLoading(false) 
+    }
   }
+
 
 
   return (

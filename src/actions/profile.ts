@@ -32,20 +32,46 @@ export async function updateSubscriptionTier(tier: 'free' | 'designer' | 'studio
 
   if (!user) throw new Error('Not authenticated')
 
-  const { data, error } = await supabase
+  // Try to update first
+  const { data: updateData, error: updateError } = await supabase
     .from('profiles')
     .update({ subscription_tier: tier, updated_at: new Date().toISOString() })
     .eq('id', user.id)
     .select()
 
-  if (error) {
-    console.error('Error updating subscription tier:', error)
-    throw new Error(error.message)
+  if (updateError) {
+    console.error('Error updating subscription tier:', updateError)
+    throw new Error(updateError.message)
+  }
+
+  let resultProfile = updateData?.[0]
+
+  if (!resultProfile) {
+    // If no row was updated, insert a new profile row
+    const defaultName = user.email?.split('@')[0] || 'My Studio'
+    const { data: insertData, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        business_name: defaultName,
+        subscription_tier: tier
+      })
+      .select()
+
+    if (insertError) {
+      console.error('Error inserting subscription tier:', insertError)
+      throw new Error(insertError.message)
+    }
+    resultProfile = insertData?.[0]
+  }
+
+  if (!resultProfile) {
+    throw new Error('Failed to retrieve profile after update/insert')
   }
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/settings')
-  return data[0] as Profile
+  return resultProfile as Profile
 }
 
 export async function updateProfile(formData: { business_name: string; logo_url: string | null }) {
