@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { updateSubscriptionTier } from '@/actions/profile'
+import { useState, useEffect, useRef } from 'react'
+import { updateSubscriptionTier, updateProfile } from '@/actions/profile'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedUrlClient, uploadImageClient } from '@/lib/supabase/storage-client'
 import {
   Settings as SettingsIcon,
   Check,
@@ -19,6 +20,9 @@ import {
   Star,
   Infinity as InfinityIcon,
   LogOut,
+  Camera,
+  Trash2,
+  Upload,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -27,6 +31,7 @@ type Tier = 'free' | 'designer' | 'studio'
 interface Profile {
   business_name: string | null
   subscription_tier: string
+  logo_url: string | null
   email?: string
 }
 
@@ -61,10 +66,10 @@ const PLANS = [
     tagline: 'For growing fashion businesses',
     icon: Crown,
     highlight: true,
-    limits: { clients: Infinity, jobs: Infinity },
+    limits: { clients: 25, jobs: 20 },
     features: [
-      'Unlimited clients',
-      'Unlimited orders',
+      'Up to 25 clients',
+      'Up to 20 active orders',
       'Advanced analytics',
       'Custom branding',
       'Priority support',
@@ -82,6 +87,7 @@ const PLANS = [
     limits: { clients: Infinity, jobs: Infinity },
     features: [
       'Everything in Pro',
+      'Unlimited clients & orders',
       'Multi-designer access',
       'White-label branding',
       'API access',
@@ -139,6 +145,14 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg]     = useState<string | null>(null)
   const [userEmail, setUserEmail]   = useState('')
+
+  // Profile management states
+  const [editingName, setEditingName] = useState('')
+  const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | null>(null)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const router = useRouter()
 
   useEffect(() => {
@@ -150,12 +164,23 @@ export default function SettingsPage() {
       setUserEmail(user.email || '')
 
       const [{ data: profileData }, { count: clientCount }, { count: jobCount }] = await Promise.all([
-        supabase.from('profiles').select('business_name, subscription_tier').eq('id', user.id).single(),
+        supabase.from('profiles').select('business_name, subscription_tier, logo_url').eq('id', user.id).single(),
         supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', user.id),
         supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('business_id', user.id).neq('status', 'delivered'),
       ])
 
-      if (profileData) setProfile(profileData as Profile)
+      if (profileData) {
+        setProfile(profileData as Profile)
+        setEditingName(profileData.business_name || '')
+        if (profileData.logo_url) {
+          try {
+            const signed = await getSignedUrlClient(profileData.logo_url)
+            setResolvedLogoUrl(signed)
+          } catch (err) {
+            console.error('Error resolving logo URL:', err)
+          }
+        }
+      }
       setUsage({ clients: clientCount || 0, activeJobs: jobCount || 0 })
       setLoading(false)
     }
@@ -196,6 +221,87 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+    setSavingProfile(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    try {
+      const updated = await updateProfile({
+        business_name: editingName,
+        logo_url: profile.logo_url
+      })
+      setProfile(prev => prev ? { ...prev, business_name: updated.business_name } : prev)
+      setSuccessMsg('🎉 Workspace settings updated successfully!')
+      router.refresh()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update profile.')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+
+    setUploadingLogo(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    try {
+      const storagePath = `logos/${userEmail}-${Date.now()}-${file.name.replace(/\s+/g, '_')}`
+      const uploadedPath = await uploadImageClient(file, storagePath)
+
+      const updated = await updateProfile({
+        business_name: editingName || profile.business_name || 'My Studio',
+        logo_url: uploadedPath
+      })
+
+      setProfile(prev => prev ? { ...prev, logo_url: updated.logo_url } : prev)
+
+      const signed = await getSignedUrlClient(updated.logo_url!)
+      setResolvedLogoUrl(signed)
+
+      setSuccessMsg('🎉 Profile image uploaded successfully!')
+      router.refresh()
+    } catch (err: any) {
+      console.error(err)
+      setErrorMsg('Failed to upload image. Make sure it is an image and try again.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const handleLogoRemove = async () => {
+    if (!profile) return
+    setUploadingLogo(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    try {
+      const updated = await updateProfile({
+        business_name: editingName || profile.business_name || 'My Studio',
+        logo_url: null
+      })
+
+      setProfile(prev => prev ? { ...prev, logo_url: null } : prev)
+      setResolvedLogoUrl(null)
+      setSuccessMsg('Profile image removed successfully.')
+      router.refresh()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to remove image.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click()
+  }
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -204,12 +310,12 @@ export default function SettingsPage() {
 
   const currentTier   = (profile?.subscription_tier || 'free') as Tier
   const currentPlan   = PLANS.find(p => p.id === currentTier) || PLANS[0]
-  const clientLimit   = currentTier === 'free' ? 5 : Infinity
-  const jobLimit      = currentTier === 'free' ? 3 : Infinity
+  const clientLimit   = currentPlan.limits.clients
+  const jobLimit      = currentPlan.limits.jobs
   const clientPct     = clientLimit === Infinity ? 0 : Math.min((usage.clients / clientLimit) * 100, 100)
   const jobPct        = jobLimit === Infinity ? 0 : Math.min((usage.activeJobs / jobLimit) * 100, 100)
-  const nearClientCap = currentTier === 'free' && usage.clients >= 4
-  const nearJobCap    = currentTier === 'free' && usage.activeJobs >= 2
+  const nearClientCap = clientLimit !== Infinity && usage.clients >= (clientLimit - 1)
+  const nearJobCap    = jobLimit !== Infinity && usage.activeJobs >= (jobLimit - 1)
 
   if (loading) {
     return (
@@ -222,6 +328,8 @@ export default function SettingsPage() {
     )
   }
 
+  const userInitial = profile?.business_name ? profile.business_name.charAt(0).toUpperCase() : 'S'
+
   return (
     <div className="space-y-8 sm:space-y-10 animate-in fade-in duration-700 max-w-4xl pb-16">
 
@@ -233,7 +341,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-[#1e1b2e] tracking-tight">Studio Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your workspace, plan &amp; billing</p>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your workspace, profile &amp; billing</p>
           </div>
         </div>
         <button
@@ -266,13 +374,101 @@ export default function SettingsPage() {
           <div>
             <p className="font-bold">You&apos;re approaching your plan limits</p>
             <p className="font-medium mt-0.5 text-amber-700/80">
-              {nearClientCap && `${usage.clients}/5 clients used. `}
-              {nearJobCap && `${usage.activeJobs}/3 active orders used. `}
-              Upgrade to Designer Pro for unlimited access.
+              {nearClientCap && `${usage.clients}/${clientLimit} clients used. `}
+              {nearJobCap && `${usage.activeJobs}/${jobLimit} active orders used. `}
+              {currentTier === 'free' ? 'Upgrade to Designer Pro for up to 25 clients and 20 active orders.' : 'Upgrade to Fashion Studio for unlimited access.'}
             </p>
           </div>
         </div>
       )}
+
+      {/* Profile Details Edit Card */}
+      <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-7 sm:p-8 shadow-sm">
+        <h3 className="text-xl font-black text-[#1e1b2e] mb-2">Studio Profile</h3>
+        <p className="text-sm text-gray-500 mb-6">Update your business details and brand branding image.</p>
+
+        <form onSubmit={handleSaveProfile} className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-gray-100">
+            {/* Logo/Avatar upload block */}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-50 shadow-inner flex items-center justify-center text-white text-3xl font-black bg-gradient-to-tr from-pink-500 to-purple-600 relative">
+                {uploadingLogo ? (
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                ) : resolvedLogoUrl ? (
+                  <img src={resolvedLogoUrl} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  userInitial
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={triggerFileSelect}
+                disabled={uploadingLogo}
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#1e1b2e] text-white hover:bg-pink-500 transition-colors flex items-center justify-center shadow-lg border-2 border-white"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-center sm:text-left flex-1">
+              <p className="font-bold text-gray-800 text-sm">Studio Profile Image</p>
+              <p className="text-xs text-gray-400">Upload a square JPEG or PNG. This image appears on your dashboard, reviews, and client invoices.</p>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={triggerFileSelect}
+                  disabled={uploadingLogo}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#e91e8c] bg-pink-50 hover:bg-pink-100 transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload Image
+                </button>
+                {profile?.logo_url && (
+                  <button
+                    type="button"
+                    onClick={handleLogoRemove}
+                    disabled={uploadingLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleLogoUpload}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-gray-500 uppercase tracking-widest">Business Name</label>
+            <input
+              type="text"
+              required
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              placeholder="e.g. Okoro Jesse Designs"
+              className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:border-[#e91e8c] focus:outline-none transition-colors font-semibold text-gray-800 text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={savingProfile || uploadingLogo}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 transition-all shadow-md shadow-pink-500/25 disabled:opacity-60"
+            >
+              {savingProfile && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save Workspace Details
+            </button>
+          </div>
+        </form>
+      </div>
 
       {/* Current Plan + Usage */}
       <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-7 sm:p-8 shadow-sm relative overflow-hidden">
@@ -299,8 +495,12 @@ export default function SettingsPage() {
           {/* Business info */}
           {profile?.business_name && (
             <div className="flex items-center gap-3 p-4 bg-[#FAFAF8] rounded-2xl border border-gray-100">
-              <div className="w-10 h-10 rounded-xl bg-[#1e1b2e] flex items-center justify-center text-[#e91e8c] font-black text-lg flex-shrink-0">
-                {profile.business_name.charAt(0).toUpperCase()}
+              <div className="w-10 h-10 rounded-xl bg-[#1e1b2e] overflow-hidden flex items-center justify-center text-[#e91e8c] font-black text-lg flex-shrink-0">
+                {resolvedLogoUrl ? (
+                  <img src={resolvedLogoUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userInitial
+                )}
               </div>
               <div>
                 <p className="font-bold text-[#1e1b2e]">{profile.business_name}</p>
@@ -483,7 +683,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Feature Comparison Note */}
+      {/* Feature Comparison Table */}
       <div className="bg-white border-2 border-gray-100 rounded-[2rem] p-7 shadow-sm">
         <h3 className="text-base font-black text-[#1e1b2e] mb-5 flex items-center gap-2">
           <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
@@ -501,8 +701,8 @@ export default function SettingsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {[
-                ['Clients', '5', '∞', '∞'],
-                ['Active Orders', '3', '∞', '∞'],
+                ['Clients Limit', '5 clients', '25 clients', 'Unlimited'],
+                ['Active Orders Limit', '3 orders', '20 orders', 'Unlimited'],
                 ['Invoicing & Payments', '✓', '✓', '✓'],
                 ['Client Review Links', '✓', '✓', '✓'],
                 ['Body Measurements', '✓', '✓', '✓'],

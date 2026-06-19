@@ -5,9 +5,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedUrlClient } from '@/lib/supabase/storage-client'
 import {
   LayoutDashboard, Users, ShoppingBag, Settings,
-  LogOut, Menu, X, Bell, Crown, Plus, Loader2, ChevronRight,
+  LogOut, Menu, X, Bell, Crown, Loader2, ChevronRight,
   FileText, Star
 } from 'lucide-react'
 
@@ -23,7 +24,8 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
-  const [profile, setProfile] = useState<{ business_name: string | null; subscription_tier: string } | null>(null)
+  const [profile, setProfile] = useState<{ business_name: string | null; subscription_tier: string; logo_url: string | null } | null>(null)
+  const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; type: string; time: string }>>([])
   const [loadingProfile, setLoadingProfile] = useState(true)
 
@@ -47,22 +49,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Fetch profile data, jobs, and invoices
       const [
-        { data: profileData },
+        profileRes,
         { data: jobs },
         { data: invoices }
       ] = await Promise.all([
-        supabase.from('profiles').select('business_name, subscription_tier').eq('id', user.id).single(),
-        // Fixed: was using target_date — correct column is delivery_date
+        supabase.from('profiles').select('business_name, subscription_tier, logo_url').eq('id', user.id).maybeSingle(),
         supabase.from('jobs').select('title, delivery_date').eq('business_id', user.id).neq('status', 'delivered'),
         supabase.from('invoices').select('id, total_amount').eq('business_id', user.id).eq('status', 'unpaid'),
       ])
 
-      setProfile(profileData)
+      let finalProfile = profileRes.data
+      const metaName = user.user_metadata?.business_name
+
+      if (!finalProfile) {
+        // Create the missing profile row
+        const defaultName = metaName || user.email?.split('@')[0] || 'My Studio'
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            business_name: defaultName,
+            subscription_tier: 'free'
+          })
+          .select('business_name, subscription_tier, logo_url')
+          .single()
+        if (newProfile) finalProfile = newProfile
+      } else if (metaName && (!finalProfile.business_name || finalProfile.business_name.includes('@') || finalProfile.business_name === user.email)) {
+        // Correct business name if it defaults to email or is empty
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .update({ business_name: metaName })
+          .eq('id', user.id)
+          .select('business_name, subscription_tier, logo_url')
+          .single()
+        if (updatedProfile) finalProfile = updatedProfile
+      }
+
+      setProfile(finalProfile)
+
+      // Get signed URL for the logo if present
+      if (finalProfile?.logo_url) {
+        try {
+          const signed = await getSignedUrlClient(finalProfile.logo_url)
+          setResolvedLogoUrl(signed)
+        } catch (err) {
+          console.error('Error resolving profile image URL:', err)
+        }
+      } else {
+        setResolvedLogoUrl(null)
+      }
 
       const notifs: Array<{ id: string; title: string; message: string; type: string; time: string }> = []
 
-      if (profileData?.subscription_tier === 'free') {
+      if (finalProfile?.subscription_tier === 'free') {
         notifs.push({
           id: 'upgrade-reminder',
           title: 'Upgrade to Pro',
@@ -142,15 +183,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Brand */}
         <div className="p-5 flex items-center justify-between" style={{ borderBottom: '1px solid #2d2540' }}>
-          <Link href="/" className="flex items-center gap-1 group min-w-0">
-            <Image
-              src="/logo.png"
-              alt="StitchFlow"
-              width={48}
-              height={48}
-              className="object-contain flex-shrink-0"
-              style={{ filter: 'brightness(1.15) drop-shadow(0 2px 6px rgba(233,30,140,0.4))' }}
-            />
+          <Link href="/" className="flex items-center gap-2.5 group min-w-0">
+            {/* White pill behind the logo so it's clearly visible on the dark sidebar */}
+            <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="StitchFlow"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+            </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-white truncate leading-tight">
                 {loadingProfile ? 'Loading…' : (profile?.business_name || 'StitchFlow')}
@@ -185,21 +228,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             )
           })}
-
-          {/* Quick Action */}
-          <div className="pt-4">
-            <Link
-              href="/dashboard/orders/new"
-              onClick={() => setIsSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-bold w-full"
-              style={{ background: 'rgba(233,30,140,0.12)', color: '#e91e8c', border: '1px solid rgba(233,30,140,0.2)' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(233,30,140,0.2)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(233,30,140,0.12)' }}
-            >
-              <Plus className="w-5 h-5 flex-shrink-0" />
-              <span>New Order</span>
-            </Link>
-          </div>
         </nav>
 
         {/* Upgrade Box for Free Users */}
@@ -321,8 +349,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fdf2f8' }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0" style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)' }}>
-                {loadingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : userInitial}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)' }}>
+                {loadingProfile ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : resolvedLogoUrl ? (
+                  <img src={resolvedLogoUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userInitial
+                )}
               </div>
               <div className="hidden md:block">
                 <p className="text-sm font-bold leading-tight truncate max-w-[120px]" style={{ color: '#1a1625' }}>

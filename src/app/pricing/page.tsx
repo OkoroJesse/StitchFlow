@@ -48,8 +48,8 @@ const plans = [
     ctaHref: '/register?plan=designer',
     ctaStyle: 'bg-pink-500 text-white hover:bg-pink-400 shadow-lg shadow-amber-500/25',
     features: [
-      { text: 'Unlimited clients', included: true },
-      { text: 'Unlimited active projects', included: true },
+      { text: 'Up to 25 clients', included: true },
+      { text: 'Up to 20 active projects', included: true },
       { text: 'Full client profiles & measurements', included: true },
       { text: 'Advanced invoicing & payment tracking', included: true },
       { text: 'Client review links', included: true },
@@ -97,10 +97,10 @@ export default function PricingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="flex items-center gap-1">
-              <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(233,30,140,0.2))' }} />
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Stitch<span className="text-pink-600">Flow</span></span>
+          <div className="flex h-20 items-center justify-between">
+            <Link href="/" className="flex items-center gap-1.5">
+              <Image src="/logo.png" alt="StitchFlow" width={64} height={64} className="object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(233,30,140,0.2))' }} />
+              <span className="text-2xl font-black text-gray-900 tracking-tight">Stitch<span className="text-pink-600">Flow</span></span>
             </Link>
             <div className="flex items-center gap-3">
               <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors hidden sm:block">Home</Link>

@@ -9,10 +9,10 @@ export default function HomePage() {
       {/* ── NAV ── */}
       <header className="sticky top-0 z-50 w-full" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #ede9f6' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="flex items-center gap-1 group">
-              <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(233,30,140,0.2))' }} />
-              <span className="text-xl font-bold" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
+          <div className="flex h-20 items-center justify-between">
+            <Link href="/" className="flex items-center gap-1.5 group">
+              <Image src="/logo.png" alt="StitchFlow" width={64} height={64} className="object-contain" style={{ filter: 'drop-shadow(0 2px 6px rgba(233,30,140,0.25))' }} />
+              <span className="text-2xl font-black tracking-tight" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -222,8 +222,8 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
               { name: 'Basic', price: '₦3,000', period: '/mo', desc: 'Perfect for getting started', features: ['Up to 5 clients', '3 active projects', 'Basic invoicing', 'Client review links'], cta: 'Get Started', highlight: false },
-              { name: 'Designer Pro', price: '₦7,000', period: '/mo', desc: 'For growing fashion businesses', features: ['Unlimited clients', 'Unlimited projects', 'Advanced analytics', 'Custom branding', 'Priority support'], cta: 'Start Pro Trial', highlight: true },
-              { name: 'Fashion Studio', price: '₦25,000', period: '/mo', desc: 'For large design houses', features: ['Everything in Pro', 'Multi-designer access', 'White-label branding', 'API access', 'Dedicated support'], cta: 'Contact Sales', highlight: false },
+              { name: 'Designer Pro', price: '₦7,000', period: '/mo', desc: 'For growing fashion businesses', features: ['Up to 25 clients', 'Up to 20 active projects', 'Advanced analytics', 'Custom branding', 'Priority support'], cta: 'Start Pro Trial', highlight: true },
+              { name: 'Fashion Studio', price: '₦25,000', period: '/mo', desc: 'For large design houses', features: ['Everything in Pro', 'Unlimited clients', 'Unlimited active projects', 'Multi-designer access', 'White-label branding'], cta: 'Contact Sales', highlight: false },
             ].map(({ name, price, period, desc, features, cta, highlight }) => (
               <div key={name} className="rounded-[2rem] p-8 text-left transition-all" style={highlight ? { background: '#1a1625', border: '2px solid #e91e8c', boxShadow: '0 12px 40px rgba(233,30,140,0.2)' } : { background: 'white', border: '1.5px solid #ede9f6' }}>
                 <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: highlight ? '#e91e8c' : '#9ca3af' }}>{name}</div>

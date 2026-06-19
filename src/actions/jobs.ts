@@ -36,7 +36,17 @@ export async function createJob(formData: {
       .neq('status', 'delivered')
 
     if (count !== null && count >= 3) {
-      throw new Error('Free plan limit: You can only have 3 active orders. Upgrade to Designer Pro for unlimited orders.')
+      throw new Error('Free plan limit: You can only have 3 active orders. Upgrade to Designer Pro for up to 20 active orders.')
+    }
+  } else if (tier === 'designer') {
+    const { count } = await supabase
+      .from('jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', user.id)
+      .neq('status', 'delivered')
+
+    if (count !== null && count >= 20) {
+      throw new Error('Designer Pro plan limit: You can only have 20 active orders. Upgrade to Fashion Studio for unlimited active orders.')
     }
   }
 

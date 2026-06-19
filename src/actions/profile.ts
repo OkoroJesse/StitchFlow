@@ -47,3 +47,30 @@ export async function updateSubscriptionTier(tier: 'free' | 'designer' | 'studio
   revalidatePath('/dashboard/settings')
   return data[0] as Profile
 }
+
+export async function updateProfile(formData: { business_name: string; logo_url: string | null }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({
+      id: user.id,
+      business_name: formData.business_name,
+      logo_url: formData.logo_url,
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating profile:', error)
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/settings')
+  return data as Profile
+}

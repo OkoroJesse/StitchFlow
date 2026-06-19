@@ -44,7 +44,16 @@ export async function addCustomer(formData: FormData) {
       .eq('business_id', user.id)
 
     if (count !== null && count >= 5) {
-      throw new Error('Free plan limit: You can only add 5 clients. Upgrade to Designer Pro for unlimited clients.')
+      throw new Error('Free plan limit: You can only add 5 clients. Upgrade to Designer Pro for up to 25 clients.')
+    }
+  } else if (tier === 'designer') {
+    const { count } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', user.id)
+
+    if (count !== null && count >= 25) {
+      throw new Error('Designer Pro plan limit: You can only add 25 clients. Upgrade to Fashion Studio for unlimited clients.')
     }
   }
 
