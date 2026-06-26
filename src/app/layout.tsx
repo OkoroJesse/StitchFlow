@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,17 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "StitchFlow — Fashion Business Management Platform",
   description: "The all-in-one platform for tailors and designers to manage customers, measurements, orders, and payments with ease and elegance.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "StitchFlow",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#e91e8c",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

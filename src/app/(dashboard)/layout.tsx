@@ -11,6 +11,7 @@ import {
   LogOut, Menu, X, Bell, Crown, Loader2, ChevronRight,
   FileText, Star, Plus
 } from 'lucide-react'
+import PWAInstallBanner from '@/components/shared/PWAInstallBanner'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview',  href: '/dashboard' },
@@ -143,6 +144,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setLoadingProfile(false)
     }
     loadData()
+  }, [])
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const registerSW = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+            updateViaCache: 'none',
+          })
+          console.log('ServiceWorker registered with scope:', registration.scope)
+        } catch (error) {
+          console.error('ServiceWorker registration failed:', error)
+        }
+      }
+      if (document.readyState === 'complete') {
+        registerSW()
+      } else {
+        window.addEventListener('load', registerSW)
+        return () => window.removeEventListener('load', registerSW)
+      }
+    }
   }, [])
 
   const handleLogout = async () => {
@@ -375,6 +398,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </main>
+
+      <PWAInstallBanner />
 
       <style jsx global>{`
         @keyframes fadeSlideDown {
