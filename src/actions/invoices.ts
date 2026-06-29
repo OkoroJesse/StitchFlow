@@ -26,6 +26,7 @@ export async function createInvoice(jobId: string, customerId: string, totalAmou
       total_amount: totalAmount,
       status: 'unpaid',
       due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
     }])
     .select()
     .single()

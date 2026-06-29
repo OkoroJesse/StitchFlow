@@ -38,22 +38,28 @@ export async function addCustomer(formData: FormData) {
   const tier = profile?.subscription_tier || 'free'
 
   if (tier === 'free') {
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .eq('business_id', user.id)
 
-    if (count !== null && count >= 5) {
-      throw new Error('Free plan limit: You can only add 5 clients. Upgrade to Designer Pro for up to 25 clients.')
+    if (!countError && count !== null && count >= 5) {
+      throw new Error(
+        "You've reached the 5-client limit on the Basic plan. " +
+        "Upgrade to Designer Pro to manage up to 25 clients, or Fashion Studio for unlimited clients."
+      )
     }
   } else if (tier === 'designer') {
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .eq('business_id', user.id)
 
-    if (count !== null && count >= 25) {
-      throw new Error('Designer Pro plan limit: You can only add 25 clients. Upgrade to Fashion Studio for unlimited clients.')
+    if (!countError && count !== null && count >= 25) {
+      throw new Error(
+        "You've reached the 25-client limit on the Designer Pro plan. " +
+        "Upgrade to Fashion Studio for unlimited clients."
+      )
     }
   }
 
@@ -70,7 +76,13 @@ export async function addCustomer(formData: FormData) {
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Provide a friendly message rather than a raw DB error
+    if (error.code === '23505') {
+      throw new Error('A client with this information already exists in your workspace.')
+    }
+    throw new Error('Unable to register client. Please check your details and try again.')
+  }
 
   revalidatePath('/dashboard/customers')
   revalidatePath('/dashboard')

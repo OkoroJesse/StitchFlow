@@ -7,7 +7,7 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: '#f8f7fc', fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* ── NAV ── */}
-      <header className="sticky top-0 z-50 w-full" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #ede9f6' }}>
+      <header className="fixed top-0 left-0 right-0 z-50 w-full" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #ede9f6' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between">
             <Link href="/" className="flex items-center gap-1.5 group">
@@ -35,7 +35,7 @@ export default function HomePage() {
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden pt-16 pb-0 md:pt-24" style={{ background: '#f8f7fc' }}>
+      <section className="relative overflow-hidden pt-36 pb-0 md:pt-44" style={{ background: '#f8f7fc' }}>
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 30% 20%, rgba(233,30,140,0.07), transparent 60%)' }} />
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 80% 70%, rgba(124,58,237,0.06), transparent 60%)' }} />
 
@@ -220,28 +220,34 @@ export default function HomePage() {
           <p className="mb-12 max-w-xl mx-auto" style={{ color: '#6b7280' }}>All prices in Nigerian Naira. No hidden fees, no surprises.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {[
-              { name: 'Basic', price: '₦3,000', period: '/mo', desc: 'Perfect for getting started', features: ['Up to 5 clients', '3 active projects', 'Basic invoicing', 'Client review links'], cta: 'Get Started', highlight: false },
-              { name: 'Designer Pro', price: '₦7,000', period: '/mo', desc: 'For growing fashion businesses', features: ['Up to 25 clients', 'Up to 20 active projects', 'Advanced analytics', 'Custom branding', 'Priority support'], cta: 'Start Pro Trial', highlight: true },
-              { name: 'Fashion Studio', price: '₦25,000', period: '/mo', desc: 'For large design houses', features: ['Everything in Pro', 'Unlimited clients', 'Unlimited active projects', 'Multi-designer access', 'White-label branding'], cta: 'Contact Sales', highlight: false },
-            ].map(({ name, price, period, desc, features, cta, highlight }) => (
-              <div key={name} className="rounded-[2rem] p-8 text-left transition-all" style={highlight ? { background: '#1a1625', border: '2px solid #e91e8c', boxShadow: '0 12px 40px rgba(233,30,140,0.2)' } : { background: 'white', border: '1.5px solid #ede9f6' }}>
-                <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: highlight ? '#e91e8c' : '#9ca3af' }}>{name}</div>
-                <div className="text-3xl font-black mb-1" style={{ color: highlight ? 'white' : '#1a1625' }}>{price}<span className="text-base font-medium" style={{ color: highlight ? '#8b7fa8' : '#9ca3af' }}>{period}</span></div>
-                <div className="text-sm mb-6" style={{ color: highlight ? '#8b7fa8' : '#9ca3af' }}>{desc}</div>
-                <div className="space-y-3 mb-8">
-                  {features.map(f => (
-                    <div key={f} className="flex items-center gap-2.5 text-sm" style={{ color: highlight ? '#ddd6fe' : '#6b7280' }}>
-                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: highlight ? '#e91e8c' : '#22c55e' }} />
-                      {f}
-                    </div>
-                  ))}
+            {
+              [
+                { name: 'Basic', price: '₦0', period: '/mo', desc: 'Perfect for getting started', features: ['Up to 5 clients', '3 active projects', 'Basic invoicing', 'Client review links'], cta: 'Get Started Free', planId: null, highlight: false },
+                { name: 'Designer Pro', price: '₦7,000', period: '/mo', desc: 'For growing fashion businesses', features: ['Up to 25 clients', 'Up to 20 active projects', 'Advanced analytics', 'Custom branding', 'Priority support'], cta: 'Buy Plan', planId: 'designer', highlight: true },
+                { name: 'Fashion Studio', price: '₦25,000', period: '/mo', desc: 'For large design houses', features: ['Everything in Pro', 'Unlimited clients', 'Unlimited active projects', 'Multi-designer access', 'White-label branding'], cta: 'Buy Plan', planId: 'studio', highlight: false },
+              ].map(({ name, price, period, desc, features, cta, planId, highlight }) => (
+                <div key={name} className="rounded-[2rem] p-8 text-left transition-all" style={highlight ? { background: '#1a1625', border: '2px solid #e91e8c', boxShadow: '0 12px 40px rgba(233,30,140,0.2)' } : { background: 'white', border: '1.5px solid #ede9f6' }}>
+                  <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: highlight ? '#e91e8c' : '#9ca3af' }}>{name}</div>
+                  <div className="text-3xl font-black mb-1" style={{ color: highlight ? 'white' : '#1a1625' }}>{price}<span className="text-base font-medium" style={{ color: highlight ? '#8b7fa8' : '#9ca3af' }}>{period}</span></div>
+                  <div className="text-sm mb-6" style={{ color: highlight ? '#8b7fa8' : '#9ca3af' }}>{desc}</div>
+                  <div className="space-y-3 mb-8">
+                    {features.map(f => (
+                      <div key={f} className="flex items-center gap-2.5 text-sm" style={{ color: highlight ? '#ddd6fe' : '#6b7280' }}>
+                        <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: highlight ? '#e91e8c' : '#22c55e' }} />
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                  <Link
+                    href={planId ? `/login?plan=${planId}` : '/register'}
+                    className="block w-full text-center font-bold py-3 rounded-xl text-sm transition-all"
+                    style={highlight ? { background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', color: 'white', boxShadow: '0 4px 14px rgba(233,30,140,0.3)' } : { background: '#f8f7fc', color: '#1a1625', border: '1.5px solid #ede9f6' }}
+                  >
+                    {cta}
+                  </Link>
                 </div>
-                <Link href="/register" className="block w-full text-center font-bold py-3 rounded-xl text-sm transition-all" style={highlight ? { background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', color: 'white', boxShadow: '0 4px 14px rgba(233,30,140,0.3)' } : { background: '#f8f7fc', color: '#1a1625', border: '1.5px solid #ede9f6' }}>
-                  {cta}
-                </Link>
-              </div>
-            ))}
+              ))
+            }
           </div>
         </div>
       </section>

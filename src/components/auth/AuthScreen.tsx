@@ -66,8 +66,14 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
     if (error) { 
       setLoginError(error.message)
       setLoginLoading(false) 
-    } else { 
-      router.push('/dashboard')
+    } else {
+      // Check if user came from pricing page with a plan selection
+      const params = new URLSearchParams(window.location.search)
+      const plan = params.get('plan')
+      const redirectPath = plan && ['designer', 'studio'].includes(plan)
+        ? `/dashboard/settings?upgradeNow=${plan}`
+        : '/dashboard'
+      router.push(redirectPath)
       router.refresh() 
     }
   }

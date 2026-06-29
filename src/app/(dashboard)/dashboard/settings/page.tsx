@@ -188,6 +188,29 @@ export default function SettingsPage() {
     load()
   }, [])
 
+  // Auto-trigger upgrade when user arrives from the pricing page
+  // e.g. /dashboard/settings?upgradeNow=designer
+  useEffect(() => {
+    if (!loading && profile) {
+      const params = new URLSearchParams(window.location.search)
+      const upgradeNow = params.get('upgradeNow') as Tier | null
+      if (upgradeNow && ['designer', 'studio'].includes(upgradeNow)) {
+        // Scroll billing section into view
+        const billingSection = document.getElementById('billing-section')
+        if (billingSection) {
+          billingSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+        // Remove param from URL to prevent re-trigger on refresh
+        const url = new URL(window.location.href)
+        url.searchParams.delete('upgradeNow')
+        window.history.replaceState({}, '', url.toString())
+        // Short delay to let the page render, then trigger upgrade
+        setTimeout(() => handleUpgrade(upgradeNow), 800)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, profile])
+
   const handleUpgrade = async (tier: Tier) => {
     if (!profile) return
     setUpgrading(tier)
@@ -215,8 +238,15 @@ export default function SettingsPage() {
           : `🎉 Welcome to ${planName}! Your workspace has been upgraded.`
       )
       router.refresh()
-    } catch {
-      setErrorMsg('Failed to update your plan. Please try again or contact support.')
+    } catch (err: any) {
+      const msg = err?.message || ''
+      if (msg.includes('Not authenticated')) {
+        setErrorMsg('Your session has expired. Please log in again and retry.')
+      } else if (msg) {
+        setErrorMsg(msg)
+      } else {
+        setErrorMsg('Failed to update your plan. Please try again or contact support.')
+      }
     } finally {
       setUpgrading(null)
     }
@@ -570,7 +600,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Plan Switcher */}
-      <div>
+      <div id="billing-section">
         <div className="mb-6">
           <h3 className="text-xl font-black text-[#1e1b2e]">Change Your Plan</h3>
           <p className="text-sm text-gray-500 mt-1">All prices in Nigerian Naira (₦). Upgrades take effect immediately.</p>
