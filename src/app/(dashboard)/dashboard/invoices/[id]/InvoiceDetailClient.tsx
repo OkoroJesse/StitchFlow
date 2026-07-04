@@ -149,7 +149,12 @@ export default function InvoiceDetailClient({ invoice }: Props) {
             </div>
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-4">Due Date</p>
-              <p className="text-base font-extrabold text-purple-600 mt-0.5">{new Date(invoice.due_date).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+              <p className="text-base font-extrabold text-purple-600 mt-0.5">
+                {invoice.due_date 
+                  ? new Date(invoice.due_date).toLocaleDateString(undefined, { dateStyle: 'long' })
+                  : new Date(new Date(invoice.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { dateStyle: 'long' })
+                }
+              </p>
             </div>
           </div>
         </div>

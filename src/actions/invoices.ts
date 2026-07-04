@@ -36,6 +36,7 @@ export async function createInvoice(
         job_id: jobId,
         total_amount: totalAmount,
         status: 'unpaid',
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       }])
 
     if (error) {
@@ -62,7 +63,7 @@ export async function getInvoices() {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, status, total_amount, created_at, jobs(id, title, customers(id, full_name))')
+    .select('id, status, total_amount, created_at, due_date, jobs(id, title, customers(id, full_name))')
     .eq('business_id', user.id)
     .order('created_at', { ascending: false })
 
