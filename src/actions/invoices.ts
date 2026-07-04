@@ -34,7 +34,6 @@ export async function createInvoice(
       .insert([{
         business_id: user.id,
         job_id: jobId,
-        customer_id: customerId,
         total_amount: totalAmount,
         status: 'unpaid',
       }])
@@ -63,7 +62,7 @@ export async function getInvoices() {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, status, total_amount, created_at, due_date, jobs(id, title, customers(id, full_name))')
+    .select('id, status, total_amount, created_at, jobs(id, title, customers(id, full_name))')
     .eq('business_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -95,7 +94,7 @@ export async function updateInvoiceStatus(invoiceId: string, status: 'paid' | 'u
 
   const { error } = await supabase
     .from('invoices')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status })
     .eq('id', invoiceId)
     .eq('business_id', user.id)
 

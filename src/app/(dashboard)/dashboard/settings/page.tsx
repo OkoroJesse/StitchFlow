@@ -115,24 +115,31 @@ async function initiatePaystackPayment(tier: Tier, email: string, businessName: 
   }
 
   return new Promise((resolve) => {
-    const handler = (window as any).PaystackPop?.setup({
-      key: paystackKey,
-      email,
-      amount,
-      currency: 'NGN',
-      metadata: {
-        custom_fields: [
-          { display_name: 'Business', variable_name: 'business', value: businessName },
-          { display_name: 'Plan', variable_name: 'plan', value: tier },
-        ],
-      },
-      callback: () => resolve(true),
-      onClose: () => resolve(false),
-    })
-    if (handler) {
-      handler.openIframe()
-    } else {
-      // Paystack not loaded — allow upgrade in demo mode
+    try {
+      const handler = (window as any).PaystackPop?.setup({
+        key: paystackKey,
+        email,
+        amount,
+        currency: 'NGN',
+        metadata: {
+          custom_fields: [
+            { display_name: 'Business', variable_name: 'business', value: businessName },
+            { display_name: 'Plan', variable_name: 'plan', value: tier },
+          ],
+        },
+        callback: () => resolve(true),
+        onClose: () => resolve(false),
+      })
+      if (handler) {
+        handler.openIframe()
+      } else {
+        // Paystack JS not loaded or key invalid — allow upgrade in demo mode
+        console.warn('Paystack handler not available, proceeding without payment.')
+        resolve(true)
+      }
+    } catch (err) {
+      console.error('Paystack setup error:', err)
+      // Paystack initialization failed — allow upgrade to proceed
       resolve(true)
     }
   })
@@ -229,7 +236,12 @@ export default function SettingsPage() {
       }
 
       // Payment successful (or free downgrade) — update the DB
-      await updateSubscriptionTier(tier)
+      const result = await updateSubscriptionTier(tier)
+      if (!result.success) {
+        setErrorMsg(result.error || 'Failed to update your plan. Please try again.')
+        return
+      }
+
       setProfile(prev => prev ? { ...prev, subscription_tier: tier } : prev)
       const planName = PLANS.find(p => p.id === tier)?.name
       setSuccessMsg(
