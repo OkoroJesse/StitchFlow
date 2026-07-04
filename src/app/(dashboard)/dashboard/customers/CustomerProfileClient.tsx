@@ -82,6 +82,7 @@ export default function CustomerProfileClient({ customer }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'orders' | 'measurements' | 'invoices'>('orders')
   const [isPending, startTransition] = useTransition()
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
   
   // UI states
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -196,12 +197,13 @@ export default function CustomerProfileClient({ customer }: Props) {
 
   // Generate Invoice Handler
   const handleGenerateInvoice = async (jobId: string, amount: number) => {
+    setInvoiceError(null)
     startTransition(async () => {
-      try {
-        await createInvoice(jobId, customer.id, amount)
+      const result = await createInvoice(jobId, customer.id, amount)
+      if (result.success) {
         router.refresh()
-      } catch (err) {
-        alert(err instanceof Error ? err.message : 'Failed to generate invoice')
+      } else {
+        setInvoiceError(result.error || 'Failed to generate invoice. Please try again.')
       }
     })
   }
@@ -219,31 +221,45 @@ export default function CustomerProfileClient({ customer }: Props) {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-24">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-16">
+
+      {/* Invoice Error Banner */}
+      {invoiceError && (
+        <div className="rounded-xl p-3 text-sm border flex items-start gap-2.5" style={{ background: '#fdf2f8', borderColor: '#fce7f3', color: '#c4177a' }}>
+          <X className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="flex-1">{invoiceError}</span>
+          <button onClick={() => setInvoiceError(null)} className="flex-shrink-0 opacity-60 hover:opacity-100">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Back to clients */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/dashboard/customers">
-          <Button variant="ghost" icon={<ArrowLeft className="w-5 h-5" />} className="px-4 py-2">
+          <Button variant="ghost" icon={<ArrowLeft className="w-4 h-4" />} className="px-3 py-2 text-sm">
             Back to Clients
           </Button>
         </Link>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button 
             variant="ghost" 
             icon={<Edit className="w-4 h-4" />} 
             onClick={() => setIsEditingProfile(!isEditingProfile)}
-            className="text-gray-600 border border-gray-200"
+            className="text-gray-600 border border-gray-200 text-xs sm:text-sm px-2.5 sm:px-3"
           >
-            Edit Profile
+            <span className="hidden sm:inline">Edit Profile</span>
+            <span className="sm:hidden">Edit</span>
           </Button>
           <Button 
             variant="danger" 
             icon={<Trash2 className="w-4 h-4" />} 
             onClick={handleDeleteClient}
-            className="px-4.5"
+            className="text-xs sm:text-sm px-2.5 sm:px-3"
           >
-            Delete Client
+            <span className="hidden sm:inline">Delete Client</span>
+            <span className="sm:hidden">Delete</span>
           </Button>
         </div>
       </div>
@@ -315,73 +331,73 @@ export default function CustomerProfileClient({ customer }: Props) {
           </form>
         </div>
       ) : (
-        <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl">
+        <div className="bg-white border-2 border-gray-100 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 lg:p-8 relative overflow-hidden shadow-xl">
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#e91e8c]/5 blur-[120px] -z-10 rounded-full" />
           
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-              <div className="w-24 h-24 bg-[#1e1b2e] rounded-[2rem] flex items-center justify-center text-pink-500 text-4xl font-black shadow-lg shadow-[#e91e8c]/10 shrink-0">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 sm:gap-6">
+            <div className="flex flex-row items-center gap-3 sm:gap-6 min-w-0">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-[#1e1b2e] rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-pink-500 text-2xl sm:text-4xl font-black shadow-lg shadow-[#e91e8c]/10 shrink-0">
                 {customer.full_name.charAt(0).toUpperCase()}
               </div>
-              <div className="space-y-2.5">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#1e1b2e] tracking-tight uppercase">
+              <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold text-[#1e1b2e] tracking-tight uppercase truncate">
                   {customer.full_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-gray-500">
-                  <div className="flex items-center gap-2 font-semibold text-base">
-                    <Phone className="w-5 h-5 text-[#e91e8c]" />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
+                  <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
+                    <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#e91e8c] flex-shrink-0" />
                     <span>{customer.phone_number}</span>
                   </div>
                   {customer.email && (
-                    <div className="flex items-center gap-2 font-semibold text-base">
+                    <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
                       <span className="text-[#e91e8c] font-bold">@</span>
-                      <span>{customer.email}</span>
+                      <span className="truncate max-w-[120px] sm:max-w-none">{customer.email}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 font-semibold text-base">
-                    <MapPin className="w-5 h-5 text-[#e91e8c]" />
-                    <span>{customer.address}</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#e91e8c] flex-shrink-0" />
+                    <span className="truncate max-w-[130px] sm:max-w-none">{customer.address}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="flex gap-4 w-full sm:w-auto">
-              <div className="flex-1 sm:flex-none text-center px-8 py-5 bg-[#FAFAF8] rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-3xl font-extrabold text-[#1e1b2e] leading-none tracking-tight">{customer.jobs.length}</p>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-2">Projects</p>
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-none text-center px-4 sm:px-6 py-3 sm:py-4 bg-[#FAFAF8] rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm">
+                <p className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] leading-none tracking-tight">{customer.jobs.length}</p>
+                <p className="text-[9px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider mt-1.5">Projects</p>
               </div>
-              <div className="flex-1 sm:flex-none text-center px-8 py-5 bg-[#e91e8c]/5 rounded-2xl border border-[#e91e8c]/10 shadow-sm">
-                <p className="text-3xl font-extrabold text-[#e91e8c] leading-none tracking-tight">{activeJobs.length}</p>
-                <p className="text-xs font-bold text-[#e91e8c]/80 uppercase tracking-wider mt-2">Active</p>
+              <div className="flex-1 sm:flex-none text-center px-4 sm:px-6 py-3 sm:py-4 bg-[#e91e8c]/5 rounded-xl sm:rounded-2xl border border-[#e91e8c]/10 shadow-sm">
+                <p className="text-xl sm:text-2xl font-extrabold text-[#e91e8c] leading-none tracking-tight">{activeJobs.length}</p>
+                <p className="text-[9px] sm:text-[11px] font-bold text-[#e91e8c]/80 uppercase tracking-wider mt-1.5">Active</p>
               </div>
             </div>
           </div>
 
           {customer.notes && (
-            <div className="mt-8 p-5 bg-[#FAFAF8] rounded-2xl border border-gray-100 flex gap-4">
-              <FileText className="w-5 h-5 text-[#e91e8c] shrink-0 mt-0.5" />
-              <p className="text-base font-medium text-gray-500 leading-relaxed italic">&ldquo;{customer.notes}&rdquo;</p>
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-[#FAFAF8] rounded-xl sm:rounded-2xl border border-gray-100 flex gap-3">
+              <FileText className="w-4 h-4 text-[#e91e8c] shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-gray-500 leading-relaxed italic">&ldquo;{customer.notes}&rdquo;</p>
             </div>
           )}
         </div>
       )}
 
       {/* 2. TABS NAVIGATION */}
-      <div className="flex border-b border-gray-200 gap-8 overflow-x-auto pb-px">
+      <div className="flex border-b border-gray-200 gap-4 sm:gap-8 overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-2.5 py-4 px-1 font-bold text-lg border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
             activeTab === 'orders'
               ? 'border-[#e91e8c] text-[#e91e8c]'
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
-          <ShoppingBag className="w-5 h-5" />
+          <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Orders</span>
           {customer.jobs.length > 0 && (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
               activeTab === 'orders' ? 'bg-[#e91e8c]/15 text-[#e91e8c]' : 'bg-gray-100 text-gray-500'
             }`}>
               {customer.jobs.length}
@@ -391,16 +407,16 @@ export default function CustomerProfileClient({ customer }: Props) {
 
         <button
           onClick={() => setActiveTab('measurements')}
-          className={`flex items-center gap-2.5 py-4 px-1 font-bold text-lg border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
             activeTab === 'measurements'
               ? 'border-[#e91e8c] text-[#e91e8c]'
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
-          <Ruler className="w-5 h-5" />
+          <Ruler className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Measurements</span>
           {customer.measurements.length > 0 && (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
               activeTab === 'measurements' ? 'bg-[#e91e8c]/15 text-[#e91e8c]' : 'bg-gray-100 text-gray-500'
             }`}>
               {customer.measurements.length}
@@ -410,13 +426,13 @@ export default function CustomerProfileClient({ customer }: Props) {
 
         <button
           onClick={() => setActiveTab('invoices')}
-          className={`flex items-center gap-2.5 py-4 px-1 font-bold text-lg border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
             activeTab === 'invoices'
               ? 'border-[#e91e8c] text-[#e91e8c]'
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
-          <CreditCard className="w-5 h-5" />
+          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Invoices</span>
           {unpaidInvoices.length > 0 && (
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white animate-pulse">

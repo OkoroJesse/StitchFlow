@@ -3,42 +3,58 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function createInvoice(jobId: string, customerId: string, totalAmount: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+export async function createInvoice(
+  jobId: string,
+  customerId: string,
+  totalAmount: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Not authenticated. Please log in again.' }
 
-  // Check if invoice already exists for this job
-  const { data: existing } = await supabase
-    .from('invoices')
-    .select('id')
-    .eq('job_id', jobId)
-    .maybeSingle()
+    if (!totalAmount || totalAmount <= 0) {
+      return {
+        success: false,
+        error: 'This order has no agreed price set. Please edit the order and add a price before generating an invoice.',
+      }
+    }
 
-  if (existing) throw new Error('An invoice already exists for this order.')
+    // Check if invoice already exists for this job
+    const { data: existing } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('job_id', jobId)
+      .maybeSingle()
 
-  const { data, error } = await supabase
-    .from('invoices')
-    .insert([{
-      business_id: user.id,
-      job_id: jobId,
-      customer_id: customerId,
-      total_amount: totalAmount,
-      status: 'unpaid',
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date().toISOString(),
-    }])
-    .select()
-    .single()
+    if (existing) return { success: false, error: 'An invoice already exists for this order.' }
 
-  if (error) throw new Error(error.message)
+    const { error } = await supabase
+      .from('invoices')
+      .insert([{
+        business_id: user.id,
+        job_id: jobId,
+        customer_id: customerId,
+        total_amount: totalAmount,
+        status: 'unpaid',
+      }])
 
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/invoices')
-  revalidatePath('/dashboard/orders')
-  revalidatePath(`/dashboard/customers/${customerId}`)
-  return data
+    if (error) {
+      console.error('Invoice insert error:', error)
+      return { success: false, error: 'Could not create invoice: ' + error.message }
+    }
+
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/invoices')
+    revalidatePath('/dashboard/orders')
+    revalidatePath(`/dashboard/customers/${customerId}`)
+    return { success: true }
+  } catch (err: any) {
+    console.error('createInvoice unexpected error:', err)
+    return { success: false, error: err?.message || 'An unexpected error occurred. Please try again.' }
+  }
 }
+
 
 export async function getInvoices() {
   const supabase = await createClient()

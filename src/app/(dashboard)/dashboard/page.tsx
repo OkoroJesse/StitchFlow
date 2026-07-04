@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Users, ShoppingBag, CreditCard, Star, Clock, Plus, ArrowRight, AlertCircle } from 'lucide-react'
+import { Users, ShoppingBag, CreditCard, Star, Clock, Plus, ArrowRight, AlertCircle, TrendingUp, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -23,6 +23,8 @@ export default async function DashboardPage() {
     { data: recentJobs },
     { data: urgentJobs },
     { data: recentCustomers },
+    { data: paidInvoices },
+    { count: deliveredCount },
   ] = await Promise.all([
     supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', user.id),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('business_id', user.id).neq('status', 'delivered'),
@@ -47,13 +49,30 @@ export default async function DashboardPage() {
       .eq('business_id', user.id)
       .order('created_at', { ascending: false })
       .limit(4),
+    supabase.from('invoices')
+      .select('total_amount')
+      .eq('business_id', user.id)
+      .eq('status', 'paid'),
+    supabase.from('jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', user.id)
+      .eq('status', 'delivered'),
   ])
 
+  const totalEarned = (paidInvoices || []).reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+  const formatEarned = (amount: number) => {
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(0)}k`
+    return `₦${amount}`
+  }
+
   const metrics = [
-    { label: 'Clients', value: clientCount ?? 0, icon: Users, href: '/dashboard/customers', color: '#e91e8c', bg: 'rgba(233,30,140,0.08)' },
-    { label: 'Active Orders', value: activeOrderCount ?? 0, icon: ShoppingBag, href: '/dashboard/orders', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' },
-    { label: 'Unpaid Invoices', value: unpaidCount ?? 0, icon: CreditCard, href: '/dashboard/invoices', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
-    { label: 'Reviews', value: reviewCount ?? 0, icon: Star, href: '/dashboard/reviews', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
+    { label: 'Total Clients', value: clientCount ?? 0, display: String(clientCount ?? 0), icon: Users, href: '/dashboard/customers', color: '#e91e8c', bg: 'rgba(233,30,140,0.08)' },
+    { label: 'Active Orders', value: activeOrderCount ?? 0, display: String(activeOrderCount ?? 0), icon: ShoppingBag, href: '/dashboard/orders', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' },
+    { label: 'Unpaid Invoices', value: unpaidCount ?? 0, display: String(unpaidCount ?? 0), icon: CreditCard, href: '/dashboard/invoices', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
+    { label: 'Reviews', value: reviewCount ?? 0, display: String(reviewCount ?? 0), icon: Star, href: '/dashboard/reviews', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
+    { label: 'Total Earned', value: totalEarned, display: formatEarned(totalEarned), icon: TrendingUp, href: '/dashboard/invoices', color: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
+    { label: 'Delivered', value: deliveredCount ?? 0, display: String(deliveredCount ?? 0), icon: CheckCircle, href: '/dashboard/orders', color: '#059669', bg: 'rgba(5,150,105,0.08)' },
   ]
 
   const statusColors: Record<string, string> = {
@@ -96,16 +115,16 @@ export default async function DashboardPage() {
       )}
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {metrics.map((metric) => (
           <Link key={metric.label} href={metric.href}>
-            <div className="bg-white border border-gray-100 p-4 rounded-xl space-y-2 shadow-sm hover:shadow-md transition-all cursor-pointer group">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: metric.bg }}>
-                <metric.icon className="w-5 h-5" style={{ color: metric.color }} />
+            <div className="bg-white border border-gray-100 p-3 sm:p-4 rounded-xl space-y-2 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: metric.bg }}>
+                <metric.icon className="w-4 h-4" style={{ color: metric.color }} />
               </div>
               <div>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight leading-none">{metric.value}</p>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-1">{metric.label}</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight leading-none">{metric.display}</p>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-1">{metric.label}</p>
               </div>
             </div>
           </Link>

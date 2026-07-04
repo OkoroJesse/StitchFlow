@@ -334,7 +334,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
 
               {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-2xl shadow-2xl overflow-hidden z-50" style={{ background: 'white', border: '1px solid #ede9f6', animation: 'fadeSlideDown 0.15s ease' }}>
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl shadow-2xl overflow-hidden z-[100]" style={{ background: 'white', border: '1px solid #ede9f6', animation: 'fadeSlideDown 0.15s ease' }}>
                   <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid #f3f0fa', background: '#fdf2f8' }}>
                     <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#1a1625' }}>Notifications</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#fce7f3', color: '#e91e8c' }}>{notifications.length}</span>
