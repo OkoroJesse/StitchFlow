@@ -12,6 +12,7 @@ import {
   FileText, Star, Plus
 } from 'lucide-react'
 import PWAInstallBanner from '@/components/shared/PWAInstallBanner'
+import LocalNotificationManager from '@/components/shared/LocalNotificationManager'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview',  href: '/dashboard' },
@@ -400,6 +401,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       <PWAInstallBanner />
+      <LocalNotificationManager />
 
       <style jsx global>{`
         @keyframes fadeSlideDown {
