@@ -67,11 +67,11 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
       setLoginError(error.message)
       setLoginLoading(false) 
     } else {
-      // Check if user came from pricing page with a plan selection
       const params = new URLSearchParams(window.location.search)
       const plan = params.get('plan')
-      const redirectPath = plan && ['designer', 'studio'].includes(plan)
-        ? `/dashboard/settings?upgradeNow=${plan}`
+      const targetPlan = plan === 'basic' ? 'free' : plan
+      const redirectPath = targetPlan && ['free', 'designer', 'studio'].includes(targetPlan)
+        ? `/dashboard/settings?upgradeNow=${targetPlan}`
         : '/dashboard'
       router.push(redirectPath)
       router.refresh() 

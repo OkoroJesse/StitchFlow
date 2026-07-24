@@ -12,7 +12,7 @@ export default function HomePage() {
           <div className="flex h-20 items-center justify-between">
             <Link href="/" className="flex items-center gap-1.5 group">
               <Image src="/logo.png" alt="StitchFlow" width={64} height={64} className="object-contain" style={{ filter: 'drop-shadow(0 2px 6px rgba(233,30,140,0.25))' }} />
-              <span className="text-2xl font-black tracking-tight" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
+              <span className="hidden sm:inline text-2xl font-black tracking-tight" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -23,10 +23,10 @@ export default function HomePage() {
             </nav>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link href="/login" className="hidden sm:block text-sm font-semibold px-3 py-2 rounded-lg transition-all" style={{ color: '#3d3551' }}>
+              <Link href="/login" className="text-sm font-semibold px-2 py-2 rounded-lg transition-all" style={{ color: '#3d3551' }}>
                 Login
               </Link>
-              <Link href="/register" className="flex items-center gap-1.5 text-sm font-bold text-white px-4 py-2.5 rounded-xl transition-all" style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', boxShadow: '0 4px 14px rgba(233,30,140,0.35)' }}>
+              <Link href="/register" className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-bold text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all" style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', boxShadow: '0 4px 14px rgba(233,30,140,0.35)' }}>
                 Get Started Free <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -36,8 +36,8 @@ export default function HomePage() {
 
       {/* ── HERO ── */}
       <section className="relative overflow-hidden pt-36 pb-0 md:pt-44" style={{ background: '#f8f7fc' }}>
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 30% 20%, rgba(233,30,140,0.07), transparent 60%)' }} />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 80% 70%, rgba(124,58,237,0.06), transparent 60%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 30% 20%, rgba(233,30,140,0.07), transparent 60%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 80% 70%, rgba(124,58,237,0.06), transparent 60%)' }} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -62,7 +62,7 @@ export default function HomePage() {
                 <Link href="/register" className="flex items-center justify-center gap-2 font-bold px-7 py-4 rounded-2xl text-white text-sm sm:text-base transition-all" style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', boxShadow: '0 8px 28px rgba(233,30,140,0.3)' }}>
                   Get Started Free
                 </Link>
-                <Link href="/pricing" className="flex items-center justify-center gap-2 font-bold px-7 py-4 rounded-2xl text-sm sm:text-base transition-all" style={{ background: 'white', color: '#1a1625', border: '1.5px solid #ede9f6' }}>
+                <Link href="#pricing" className="flex items-center justify-center gap-2 font-bold px-7 py-4 rounded-2xl text-sm sm:text-base transition-all" style={{ background: 'white', color: '#1a1625', border: '1.5px solid #ede9f6' }}>
                   View Pricing <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -222,7 +222,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {
               [
-                { name: 'Basic', price: '₦0', period: '/mo', desc: 'Perfect for getting started', features: ['Up to 5 clients', '3 active projects', 'Basic invoicing', 'Client review links'], cta: 'Get Started Free', planId: null, highlight: false },
+                { name: 'Basic', price: '₦3,000', period: '/mo', desc: 'Perfect for getting started', features: ['Up to 5 clients', '3 active projects', 'Basic invoicing', 'Client review links'], cta: 'Buy Plan', planId: 'free', highlight: false },
                 { name: 'Designer Pro', price: '₦7,000', period: '/mo', desc: 'For growing fashion businesses', features: ['Up to 25 clients', 'Up to 20 active projects', 'Advanced analytics', 'Custom branding', 'Priority support'], cta: 'Buy Plan', planId: 'designer', highlight: true },
                 { name: 'Fashion Studio', price: '₦25,000', period: '/mo', desc: 'For large design houses', features: ['Everything in Pro', 'Unlimited clients', 'Unlimited active projects', 'Multi-designer access', 'White-label branding'], cta: 'Buy Plan', planId: 'studio', highlight: false },
               ].map(({ name, price, period, desc, features, cta, planId, highlight }) => (

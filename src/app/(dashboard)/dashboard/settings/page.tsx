@@ -45,7 +45,7 @@ const PLANS = [
   {
     id: 'free' as Tier,
     name: 'Basic',
-    naira: '₦0',
+    naira: '₦3,000',
     period: '/mo',
     tagline: 'Get started at no cost',
     icon: Zap,
@@ -704,7 +704,7 @@ export default function SettingsPage() {
                     'Switch to Basic'
                   ) : (
                     <>
-                      {plan.naira === '₦0' ? 'Switch to Basic' : (
+                      {plan.id === 'free' ? 'Switch to Basic' : (
                         <>
                           <CreditCard className="w-4 h-4" />
                           Upgrade — {plan.naira}/mo
