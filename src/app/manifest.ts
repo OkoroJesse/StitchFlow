@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'The all-in-one platform for tailors and designers to manage customers, measurements, orders, and payments with ease and elegance.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f8f7fc',
-    theme_color: '#e91e8c',
+    background_color: '#FAF8F5',
+    theme_color: '#18131d',
     icons: [
       {
         src: '/favicon.ico',
