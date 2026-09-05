@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { Database } from '@/types/database'
+import { CanonicalPlanId, normalizePlanId } from '@/lib/plans'
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -27,17 +28,19 @@ export async function getProfile() {
 }
 
 export async function updateSubscriptionTier(
-  tier: 'free' | 'designer' | 'studio'
-): Promise<{ success: boolean; error?: string; data?: Profile }> {
+  rawTier: string
+): Promise<{ success: boolean; error?: string; data?: Profile; canonicalTier?: CanonicalPlanId }> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Not authenticated. Please log in again.' }
 
-    // Try to update first
+    const canonicalTier = normalizePlanId(rawTier)
+
+    // Try to update existing profile
     const { data: updateData, error: updateError } = await supabase
       .from('profiles')
-      .update({ subscription_tier: tier })
+      .update({ subscription_tier: canonicalTier })
       .eq('id', user.id)
       .select()
 
@@ -49,14 +52,14 @@ export async function updateSubscriptionTier(
     let resultProfile = updateData?.[0]
 
     if (!resultProfile) {
-      // If no row was updated, insert a new profile row
+      // If no profile row existed, insert a default one
       const defaultName = user.email?.split('@')[0] || 'My Studio'
       const { data: insertData, error: insertError } = await supabase
         .from('profiles')
         .insert({
           id: user.id,
           business_name: defaultName,
-          subscription_tier: tier
+          subscription_tier: canonicalTier,
         })
         .select()
 
@@ -73,7 +76,7 @@ export async function updateSubscriptionTier(
 
     revalidatePath('/dashboard')
     revalidatePath('/dashboard/settings')
-    return { success: true, data: resultProfile as Profile }
+    return { success: true, data: resultProfile as Profile, canonicalTier }
   } catch (err: any) {
     console.error('updateSubscriptionTier error:', err)
     return { success: false, error: err?.message || 'An unexpected error occurred.' }
@@ -86,12 +89,22 @@ export async function updateProfile(formData: { business_name: string; logo_url:
 
   if (!user) throw new Error('Not authenticated')
 
+  // Fetch current tier so upsert never violates subscription_tier NOT NULL or check constraint
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', user.id)
+    .single()
+
+  const currentTier = normalizePlanId(existingProfile?.subscription_tier)
+
   const { data, error } = await supabase
     .from('profiles')
     .upsert({
       id: user.id,
       business_name: formData.business_name,
       logo_url: formData.logo_url,
+      subscription_tier: currentTier,
     })
     .select()
     .single()

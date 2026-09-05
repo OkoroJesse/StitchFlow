@@ -30,6 +30,7 @@ import {
 import PWAInstallBanner from '@/components/shared/PWAInstallBanner'
 import LocalNotificationManager from '@/components/shared/LocalNotificationManager'
 import { QuickActionBottomSheet } from '@/components/shared/BottomSheet'
+import { normalizePlanId, getPlanConfig } from '@/lib/plans'
 
 // Grouped App Information Architecture
 const WORK_NAV = [
@@ -99,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .insert({
             id: user.id,
             business_name: defaultName,
-            subscription_tier: 'free'
+            subscription_tier: 'basic'
           })
           .select('business_name, subscription_tier, logo_url')
           .single()
@@ -118,22 +119,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       const notifs: Array<{ id: string; title: string; message: string; type: string; time: string }> = []
-      if (finalProfile?.subscription_tier === 'free') {
-        notifs.push({
-          id: 'upgrade-reminder',
-          title: 'Upgrade Workspace',
-          message: 'Unlock unlimited customers, projects, and custom branding.',
-          type: 'alert',
-          time: 'Now',
-        })
-      }
+      // Date urgency check: jobs due within 3 days
+      const now = new Date()
+      jobs?.forEach((j) => {
+        if (j.delivery_date) {
+          const due = new Date(j.delivery_date)
+          const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          if (diffDays >= 0 && diffDays <= 3) {
+            notifs.push({
+              id: `job-${j.title}`,
+              title: 'Project Due Soon',
+              message: `"${j.title}" is due in ${diffDays === 0 ? 'today' : diffDays + ' day(s)'}!`,
+              type: 'urgent',
+              time: 'Action Required',
+            })
+          }
+        }
+      })
       if (invoices && invoices.length > 0) {
         notifs.push({
-          id: 'unpaid-invoices',
+          id: 'unpaid-inv',
           title: 'Unpaid Invoices',
-          message: `${invoices.length} unpaid invoice(s) pending.`,
-          type: 'warning',
-          time: 'Pending',
+          message: `You have ${invoices.length} outstanding invoice(s) awaiting payment.`,
+          type: 'info',
+          time: 'Payment',
         })
       }
       setNotifications(notifs)
@@ -148,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const userInitial = profile?.business_name ? profile.business_name.charAt(0).toUpperCase() : 'S'
-  const isFreePlan = !profile || profile?.subscription_tier === 'free'
+  const isFreePlan = !profile || normalizePlanId(profile?.subscription_tier) === 'basic'
 
   const isNavActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { Database } from '@/types/database'
+import { normalizePlanId, getPlanConfig } from '@/lib/plans'
 
 export type Job = Database['public']['Tables']['jobs']['Row']
 
@@ -26,27 +27,18 @@ export async function createJob(formData: {
     .eq('id', user.id)
     .single()
 
-  const tier = profile?.subscription_tier || 'free'
+  const canonicalTier = normalizePlanId(profile?.subscription_tier)
+  const planConfig = getPlanConfig(canonicalTier)
 
-  if (tier === 'free') {
+  if (planConfig.limits.activeJobs !== Infinity) {
     const { count } = await supabase
       .from('jobs')
       .select('*', { count: 'exact', head: true })
       .eq('business_id', user.id)
       .neq('status', 'delivered')
 
-    if (count !== null && count >= 3) {
-      throw new Error('Free plan limit: You can only have 3 active orders. Upgrade to Designer Pro for up to 20 active orders.')
-    }
-  } else if (tier === 'designer') {
-    const { count } = await supabase
-      .from('jobs')
-      .select('*', { count: 'exact', head: true })
-      .eq('business_id', user.id)
-      .neq('status', 'delivered')
-
-    if (count !== null && count >= 20) {
-      throw new Error('Designer Pro plan limit: You can only have 20 active orders. Upgrade to Fashion Studio for unlimited active orders.')
+    if (count !== null && count >= planConfig.limits.activeJobs) {
+      throw new Error(`${planConfig.name} plan limit: You can only have ${planConfig.limits.activeJobs} active projects. Upgrade your plan for expanded capacity.`)
     }
   }
 

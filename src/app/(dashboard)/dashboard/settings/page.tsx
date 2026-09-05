@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { updateSubscriptionTier, updateProfile } from '@/actions/profile'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedUrlClient, uploadImageClient } from '@/lib/supabase/storage-client'
+import { CANONICAL_PLANS, CanonicalPlanId, normalizePlanId, getPlanConfig } from '@/lib/plans'
 import {
   Settings as SettingsIcon,
   Check,
@@ -27,8 +28,6 @@ import {
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 
-type Tier = 'free' | 'designer' | 'studio'
-
 interface Profile {
   business_name: string | null
   subscription_tier: string
@@ -41,118 +40,21 @@ interface UsageStats {
   activeJobs: number
 }
 
-const PLANS = [
-  {
-    id: 'free' as Tier,
-    name: 'Basic',
-    naira: '₦3,000',
-    period: '/mo',
-    tagline: 'Get started at no cost',
-    icon: Zap,
-    highlight: false,
-    limits: { clients: 5, jobs: 3 },
-    features: [
-      '5 clients',
-      '3 active orders',
-      'Invoicing & payments',
-      'Client review links',
-      'Body measurements',
-    ],
-  },
-  {
-    id: 'designer' as Tier,
-    name: 'Designer Pro',
-    naira: '₦7,000',
-    period: '/mo',
-    tagline: 'For growing fashion businesses',
-    icon: Crown,
-    highlight: true,
-    limits: { clients: 25, jobs: 20 },
-    features: [
-      'Up to 25 clients',
-      'Up to 20 active orders',
-      'Advanced analytics',
-      'Custom branding',
-      'Priority support',
-      'All Basic features',
-    ],
-  },
-  {
-    id: 'studio' as Tier,
-    name: 'Fashion Studio',
-    naira: '₦25,000',
-    period: '/mo',
-    tagline: 'For multi-designer studios',
-    icon: Building2,
-    highlight: false,
-    limits: { clients: Infinity, jobs: Infinity },
-    features: [
-      'Everything in Pro',
-      'Unlimited clients & orders',
-      'Multi-designer access',
-      'White-label branding',
-      'API access',
-      'Dedicated account manager',
-    ],
-  },
-]
-
-// Paystack payment integration helper
-async function initiatePaystackPayment(tier: Tier, email: string, businessName: string): Promise<boolean> {
-  const amounts: Record<Tier, number> = {
-    free: 0,
-    designer: 700000,  // ₦7,000 in kobo
-    studio: 2500000,   // ₦25,000 in kobo
-  }
-  const amount = amounts[tier]
-  if (amount === 0) return true // Downgrade to free — no payment needed
-
-  // Paystack Inline — if key is not configured, fall back to direct upgrade (dev mode)
-  const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
-  if (!paystackKey) {
-    // Dev/demo mode: upgrade directly without payment
-    return true
-  }
-
-  return new Promise((resolve) => {
-    try {
-      const handler = (window as any).PaystackPop?.setup({
-        key: paystackKey,
-        email,
-        amount,
-        currency: 'NGN',
-        metadata: {
-          custom_fields: [
-            { display_name: 'Business', variable_name: 'business', value: businessName },
-            { display_name: 'Plan', variable_name: 'plan', value: tier },
-          ],
-        },
-        callback: () => resolve(true),
-        onClose: () => resolve(false),
-      })
-      if (handler) {
-        handler.openIframe()
-      } else {
-        // Paystack JS not loaded or key invalid — allow upgrade in demo mode
-        console.warn('Paystack handler not available, proceeding without payment.')
-        resolve(true)
-      }
-    } catch (err) {
-      console.error('Paystack setup error:', err)
-      // Paystack initialization failed — allow upgrade to proceed
-      resolve(true)
-    }
-  })
+const PLAN_ICONS: Record<CanonicalPlanId, any> = {
+  basic: Zap,
+  designer_pro: Crown,
+  fashion_studio: Building2,
 }
 
 export default function SettingsPage() {
-  const [profile, setProfile]       = useState<Profile | null>(null)
-  const [usage, setUsage]           = useState<UsageStats>({ clients: 0, activeJobs: 0 })
-  const [loading, setLoading]       = useState(true)
-  const [upgrading, setUpgrading]   = useState<Tier | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [usage, setUsage] = useState<UsageStats>({ clients: 0, activeJobs: 0 })
+  const [loading, setLoading] = useState(true)
+  const [upgradingPlan, setUpgradingPlan] = useState<CanonicalPlanId | null>(null)
+  const [upgradeStatusText, setUpgradeStatusText] = useState<string>('')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const [errorMsg, setErrorMsg]     = useState<string | null>(null)
-  const [userEmail, setUserEmail]   = useState('')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState('')
 
   // Profile management states
   const [editingName, setEditingName] = useState('')
@@ -195,72 +97,170 @@ export default function SettingsPage() {
     load()
   }, [])
 
-  // Auto-trigger upgrade when user arrives from the pricing page
-  // e.g. /dashboard/settings?upgradeNow=designer
+  // Auto-verify if returning from Paystack redirect (e.g. ?verify_ref=sf_sub_...)
   useEffect(() => {
     if (!loading && profile) {
       const params = new URLSearchParams(window.location.search)
-      const upgradeNow = params.get('upgradeNow') as Tier | null
-      if (upgradeNow && ['designer', 'studio'].includes(upgradeNow)) {
-        // Scroll billing section into view
+      const verifyRef = params.get('verify_ref')
+      const upgradeNow = params.get('upgradeNow')
+
+      if (verifyRef) {
+        // Clean URL parameter
+        const url = new URL(window.location.href)
+        url.searchParams.delete('verify_ref')
+        window.history.replaceState({}, '', url.toString())
+
+        // Verify transaction server-side
+        handleVerifyPayment(verifyRef)
+      } else if (upgradeNow) {
+        const canonical = normalizePlanId(upgradeNow)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('upgradeNow')
+        window.history.replaceState({}, '', url.toString())
+
         const billingSection = document.getElementById('billing-section')
         if (billingSection) {
           billingSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
-        // Remove param from URL to prevent re-trigger on refresh
-        const url = new URL(window.location.href)
-        url.searchParams.delete('upgradeNow')
-        window.history.replaceState({}, '', url.toString())
-        // Short delay to let the page render, then trigger upgrade
-        setTimeout(() => handleUpgrade(upgradeNow), 800)
+        setTimeout(() => handleUpgrade(canonical), 600)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, profile])
 
-  const handleUpgrade = async (tier: Tier) => {
-    if (!profile) return
-    setUpgrading(tier)
+  const handleVerifyPayment = async (reference: string, expectedPlanId?: CanonicalPlanId) => {
+    setUpgradeStatusText('Verifying payment with server...')
     setErrorMsg(null)
     setSuccessMsg(null)
 
     try {
-      // For paid upgrades, run Paystack payment first
-      if (tier !== 'free') {
-        const paid = await initiatePaystackPayment(tier, userEmail, profile.business_name || 'StitchFlow Business')
-        if (!paid) {
-          setUpgrading(null)
-          setErrorMsg('Payment was cancelled. Your plan was not changed.')
-          return
-        }
-      }
+      const res = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference, expectedPlanId }),
+      })
 
-      // Payment successful (or free downgrade) — update the DB
-      const result = await updateSubscriptionTier(tier)
-      if (!result.success) {
-        setErrorMsg(result.error || 'Failed to update your plan. Please try again.')
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.error || 'Payment verification failed. Your plan was not changed.')
         return
       }
 
-      setProfile(prev => prev ? { ...prev, subscription_tier: tier } : prev)
-      const planName = PLANS.find(p => p.id === tier)?.name
-      setSuccessMsg(
-        tier === 'free'
-          ? 'You have downgraded to the Basic plan.'
-          : `🎉 Welcome to ${planName}! Your workspace has been upgraded.`
-      )
+      const activePlan = getPlanConfig(data.planId)
+      setProfile(prev => prev ? { ...prev, subscription_tier: data.planId } : prev)
+      setSuccessMsg(`🎉 Welcome to ${activePlan.name}! Your workspace subscription has been activated.`)
       router.refresh()
     } catch (err: any) {
-      const msg = err?.message || ''
-      if (msg.includes('Not authenticated')) {
-        setErrorMsg('Your session has expired. Please log in again and retry.')
-      } else if (msg) {
-        setErrorMsg(msg)
-      } else {
-        setErrorMsg('Failed to update your plan. Please try again or contact support.')
-      }
+      console.error('Verify error:', err)
+      setErrorMsg('An error occurred while verifying payment. Please refresh or contact support.')
     } finally {
-      setUpgrading(null)
+      setUpgradingPlan(null)
+      setUpgradeStatusText('')
+    }
+  }
+
+  const handleUpgrade = async (targetPlanId: CanonicalPlanId) => {
+    if (!profile) return
+    const currentCanonical = normalizePlanId(profile.subscription_tier)
+
+    if (currentCanonical === targetPlanId) return
+
+    setUpgradingPlan(targetPlanId)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+    setUpgradeStatusText('Initializing payment...')
+
+    try {
+      // 1. Initialize payment with server
+      const initRes = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: targetPlanId }),
+      })
+
+      const initData = await initRes.json()
+
+      if (!initRes.ok || !initData.success) {
+        setErrorMsg(initData.error || 'Unable to start payment. Please try again.')
+        setUpgradingPlan(null)
+        return
+      }
+
+      // If switching to Basic (free/downgrade)
+      if (initData.isFree) {
+        const updateRes = await updateSubscriptionTier('basic')
+        if (!updateRes.success) {
+          setErrorMsg(updateRes.error || 'Failed to update plan.')
+        } else {
+          setProfile(prev => prev ? { ...prev, subscription_tier: 'basic' } : prev)
+          setSuccessMsg('Workspace plan changed to Basic.')
+          router.refresh()
+        }
+        setUpgradingPlan(null)
+        return
+      }
+
+      // Paid Plan Initialization
+      const { access_code, reference } = initData
+      const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+
+      // Fallback: If no public key is present in client environment (e.g. dev demo mode)
+      if (!paystackKey) {
+        console.warn('[Paystack] Public key missing in client environment. Updating database directly for demo mode.')
+        const directRes = await updateSubscriptionTier(targetPlanId)
+        if (directRes.success) {
+          const targetConfig = getPlanConfig(targetPlanId)
+          setProfile(prev => prev ? { ...prev, subscription_tier: targetPlanId } : prev)
+          setSuccessMsg(`🎉 Welcome to ${targetConfig.name}! (Demo Mode activated)`)
+          router.refresh()
+        } else {
+          setErrorMsg(directRes.error || 'Failed to update workspace.')
+        }
+        setUpgradingPlan(null)
+        return
+      }
+
+      setUpgradeStatusText('Opening secure checkout...')
+
+      // Use PaystackPop handler with access_code (Paystack Inline JS V2 compatible)
+      const handler = (window as any).PaystackPop?.setup({
+        key: paystackKey,
+        access_code,
+        email: userEmail,
+        amount: initData.amount,
+        currency: 'NGN',
+        ref: reference,
+        callback: function (response: any) {
+          console.log('[Paystack Callback] Transaction completed:', response)
+          handleVerifyPayment(response.reference || reference, targetPlanId)
+        },
+        onClose: function () {
+          console.log('[Paystack Callback] Checkout closed by user.')
+          setUpgradingPlan(null)
+          setUpgradeStatusText('')
+          setErrorMsg('Payment was cancelled. Your current plan remains unchanged.')
+        },
+      })
+
+      if (handler && typeof handler.openIframe === 'function') {
+        handler.openIframe()
+      } else {
+        // Direct redirect fallback if Inline JS is blocked or unavailable
+        console.warn('PaystackPop handler not ready, redirecting to authorization URL...')
+        if (initData.authorization_url) {
+          window.location.href = initData.authorization_url
+        } else {
+          setErrorMsg('Unable to open Paystack checkout modal. Please check your browser settings.')
+          setUpgradingPlan(null)
+        }
+      }
+
+    } catch (err: any) {
+      console.error('handleUpgrade error:', err)
+      setErrorMsg(err?.message || 'An unexpected error occurred while processing upgrade.')
+      setUpgradingPlan(null)
+      setUpgradeStatusText('')
     }
   }
 
@@ -351,21 +351,21 @@ export default function SettingsPage() {
     router.push('/login')
   }
 
-  const currentTier   = (profile?.subscription_tier || 'free') as Tier
-  const currentPlan   = PLANS.find(p => p.id === currentTier) || PLANS[0]
-  const clientLimit   = currentPlan.limits.clients
-  const jobLimit      = currentPlan.limits.jobs
-  const clientPct     = clientLimit === Infinity ? 0 : Math.min((usage.clients / clientLimit) * 100, 100)
-  const jobPct        = jobLimit === Infinity ? 0 : Math.min((usage.activeJobs / jobLimit) * 100, 100)
-  const nearClientCap = clientLimit !== Infinity && usage.clients >= (clientLimit - 1)
-  const nearJobCap    = jobLimit !== Infinity && usage.activeJobs >= (jobLimit - 1)
+  const currentCanonical = normalizePlanId(profile?.subscription_tier)
+  const currentPlan = getPlanConfig(currentCanonical)
+  const clientLimit = currentPlan.limits.clients
+  const jobLimit = currentPlan.limits.activeJobs
+  const clientPct = clientLimit === Infinity ? 0 : Math.min((usage.clients / clientLimit) * 100, 100)
+  const jobPct = jobLimit === Infinity ? 0 : Math.min((usage.activeJobs / jobLimit) * 100, 100)
+  const nearClientCap = clientLimit !== Infinity && usage.clients >= (clientLimit - 2)
+  const nearJobCap = jobLimit !== Infinity && usage.activeJobs >= (jobLimit - 2)
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
-          <p className="text-gray-500 text-sm font-medium">Loading workspace settings…</p>
+          <Loader2 className="w-8 h-8 text-[#4a1525] animate-spin" />
+          <p className="text-stone-500 text-sm font-medium">Loading workspace settings…</p>
         </div>
       </div>
     )
@@ -375,410 +375,348 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+      {/* Modern Paystack Inline JS V2 Script */}
+      <Script src="https://js.paystack.co/v2/inline.js" strategy="lazyOnload" />
+
       <div className="space-y-8 sm:space-y-10 animate-in fade-in duration-700 max-w-4xl pb-16">
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-[#4a1525]">
-            <SettingsIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 tracking-tight">Studio Settings</h1>
-            <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Manage your fashion workspace, atelier details &amp; subscription</p>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 transition-all"
-        >
-          <LogOut className="w-4 h-4" />
-          Log Out
-        </button>
-      </div>
-
-      {/* Alerts */}
-      {successMsg && (
-        <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-sm font-semibold">
-          <ShieldCheck className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          {successMsg}
-        </div>
-      )}
-      {errorMsg && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-semibold">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          {errorMsg}
-        </div>
-      )}
-
-      {/* Limit Warning */}
-      {(nearClientCap || nearJobCap) && (
-        <div className="flex items-start gap-3 p-4 rounded-2xl text-sm font-semibold" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', color: '#b45309' }}>
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" />
-          <div>
-            <p className="font-bold">You&apos;re approaching your plan limits</p>
-            <p className="font-medium mt-0.5 text-amber-700/80">
-              {nearClientCap && `${usage.clients}/${clientLimit} clients used. `}
-              {nearJobCap && `${usage.activeJobs}/${jobLimit} active orders used. `}
-              {currentTier === 'free' ? 'Upgrade to Designer Pro for up to 25 clients and 20 active orders.' : 'Upgrade to Fashion Studio for unlimited access.'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Profile Details Edit Card */}
-      <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-7 sm:p-8 shadow-sm">
-        <h3 className="text-xl font-black text-[#1e1b2e] mb-2">Studio Profile</h3>
-        <p className="text-sm text-gray-500 mb-6">Update your business details and brand branding image.</p>
-
-        <form onSubmit={handleSaveProfile} className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-gray-100">
-            {/* Logo/Avatar upload block */}
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-50 shadow-inner flex items-center justify-center text-white text-3xl font-black bg-gradient-to-tr from-pink-500 to-purple-600 relative">
-                {uploadingLogo ? (
-                  <Loader2 className="w-8 h-8 animate-spin" />
-                ) : resolvedLogoUrl ? (
-                  <img src={resolvedLogoUrl} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  userInitial
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={triggerFileSelect}
-                disabled={uploadingLogo}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#1e1b2e] text-white hover:bg-pink-500 transition-colors flex items-center justify-center shadow-lg border-2 border-white"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#fbf0f3] flex items-center justify-center text-[#4a1525]">
+              <SettingsIcon className="w-5 h-5" />
             </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 tracking-tight">Studio Settings</h1>
+              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Manage your fashion workspace, atelier details &amp; subscription</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
 
-            <div className="space-y-2 text-center sm:text-left flex-1">
-              <p className="font-bold text-gray-800 text-sm">Studio Profile Image</p>
-              <p className="text-xs text-gray-400">Upload a square JPEG or PNG. This image appears on your dashboard, reviews, and client invoices.</p>
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+        {/* Alerts */}
+        {successMsg && (
+          <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-sm font-semibold">
+            <ShieldCheck className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600" />
+            {successMsg}
+          </div>
+        )}
+        {errorMsg && (
+          <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-sm font-semibold">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Limit Warning */}
+        {(nearClientCap || nearJobCap) && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl text-sm font-semibold bg-amber-50 border border-amber-200 text-amber-900">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+            <div>
+              <p className="font-bold">You&apos;re approaching your plan capacity</p>
+              <p className="font-medium mt-0.5 text-amber-800/80">
+                {nearClientCap && `${usage.clients}/${clientLimit} clients used. `}
+                {nearJobCap && `${usage.activeJobs}/${jobLimit} active orders used. `}
+                {currentCanonical === 'basic' ? 'Upgrade to Designer Pro for up to 50 clients and 30 active orders.' : 'Upgrade to Fashion Studio for unlimited access.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Studio Profile Card */}
+        <div className="bg-white border border-stone-200/80 rounded-3xl p-7 sm:p-8 shadow-xs">
+          <h3 className="text-xl font-serif font-bold text-[#18131d] mb-1">Studio Profile</h3>
+          <p className="text-xs sm:text-sm text-stone-500 mb-6">Update your business name and studio branding image.</p>
+
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-stone-100">
+              {/* Logo container */}
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-stone-200 shadow-inner flex items-center justify-center text-white text-3xl font-serif font-bold bg-[#18131d] relative">
+                  {uploadingLogo ? (
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                  ) : resolvedLogoUrl ? (
+                    <img src={resolvedLogoUrl} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    userInitial
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={triggerFileSelect}
                   disabled={uploadingLogo}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#e91e8c] bg-pink-50 hover:bg-pink-100 transition-colors"
+                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#4a1525] text-white hover:bg-[#5c1d30] transition-colors flex items-center justify-center shadow-md border-2 border-white"
                 >
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload Image
+                  <Camera className="w-4 h-4" />
                 </button>
-                {profile?.logo_url && (
+              </div>
+
+              <div className="space-y-2 text-center sm:text-left flex-1">
+                <p className="font-bold text-stone-900 text-sm">Studio Profile Image</p>
+                <p className="text-xs text-stone-500">Upload a square JPEG or PNG. Appears on client invoices and review links.</p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={handleLogoRemove}
+                    onClick={triggerFileSelect}
                     disabled={uploadingLogo}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#4a1525] bg-[#fbf0f3] hover:bg-[#fbcfe0] transition-colors"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Remove
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Image
                   </button>
-                )}
+                  {profile?.logo_url && (
+                    <button
+                      type="button"
+                      onClick={handleLogoRemove}
+                      disabled={uploadingLogo}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleLogoUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-stone-600 uppercase tracking-wider">Business / Atelier Name</label>
               <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleLogoUpload}
-                accept="image/*"
-                className="hidden"
+                type="text"
+                required
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                placeholder="e.g. Okoro Jesse Designs"
+                className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-[#4a1525] focus:outline-none transition-colors font-semibold text-stone-900 text-sm bg-[#FAF8F5]"
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-black text-gray-500 uppercase tracking-widest">Business Name</label>
-            <input
-              type="text"
-              required
-              value={editingName}
-              onChange={(e) => setEditingName(e.target.value)}
-              placeholder="e.g. Okoro Jesse Designs"
-              className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:border-[#e91e8c] focus:outline-none transition-colors font-semibold text-gray-800 text-sm"
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={savingProfile || uploadingLogo}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 transition-all shadow-md shadow-pink-500/25 disabled:opacity-60"
-            >
-              {savingProfile && <Loader2 className="w-4 h-4 animate-spin" />}
-              Save Workspace Details
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Current Plan + Usage */}
-      <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-7 sm:p-8 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(233,30,140,0.05)' }} />
-        <div className="relative z-10 space-y-6">
-
-          {/* Plan header */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Current Plan</p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-2xl font-black text-[#1e1b2e]">{currentPlan.name}</h2>
-                <span className="text-[10px] font-black px-3 py-1 rounded-full bg-[#e91e8c] text-white uppercase tracking-widest">
-                  Active
-                </span>
-              </div>
-              <p className="text-[#e91e8c] font-black mt-1 text-lg">{currentPlan.naira}<span className="text-sm font-semibold text-gray-400">{currentPlan.period}</span></p>
-            </div>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: currentTier === 'designer' ? 'rgba(233,30,140,0.1)' : 'rgba(124,58,237,0.08)' }}>
-              <currentPlan.icon className="w-7 h-7" style={{ color: currentTier === 'designer' ? '#e91e8c' : '#7c3aed' }} />
-            </div>
-          </div>
-
-          {/* Business info */}
-          {profile?.business_name && (
-            <div className="flex items-center gap-3 p-4 bg-[#FAFAF8] rounded-2xl border border-gray-100">
-              <div className="w-10 h-10 rounded-xl bg-[#1e1b2e] overflow-hidden flex items-center justify-center text-[#e91e8c] font-black text-lg flex-shrink-0">
-                {resolvedLogoUrl ? (
-                  <img src={resolvedLogoUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  userInitial
-                )}
-              </div>
-              <div>
-                <p className="font-bold text-[#1e1b2e]">{profile.business_name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{userEmail}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Usage meters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#FAFAF8] rounded-2xl p-5 border border-gray-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#e91e8c]" />
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Clients</span>
-                </div>
-                <span className="text-sm font-black text-[#1e1b2e]">
-                  {usage.clients}{clientLimit !== Infinity ? ` / ${clientLimit}` : ' / ∞'}
-                </span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: clientLimit === Infinity ? '30%' : `${clientPct}%`,
-                    background: clientPct >= 80 ? '#ef4444' : clientPct >= 60 ? '#e91e8c' : '#7c3aed',
-                  }}
-                />
-              </div>
-              {clientLimit === Infinity && (
-                <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1">
-                  <InfinityIcon className="w-3 h-3" /> Unlimited on {currentPlan.name}
-                </p>
-              )}
-            </div>
-
-            <div className="bg-[#FAFAF8] rounded-2xl p-5 border border-gray-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-purple-600" />
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Active Orders</span>
-                </div>
-                <span className="text-sm font-black text-[#1e1b2e]">
-                  {usage.activeJobs}{jobLimit !== Infinity ? ` / ${jobLimit}` : ' / ∞'}
-                </span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: jobLimit === Infinity ? '30%' : `${jobPct}%`,
-                    background: jobPct >= 80 ? '#ef4444' : jobPct >= 60 ? '#e91e8c' : '#7c3aed',
-                  }}
-                />
-              </div>
-              {jobLimit === Infinity && (
-                <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1">
-                  <InfinityIcon className="w-3 h-3" /> Unlimited on {currentPlan.name}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Plan Switcher */}
-      <div id="billing-section">
-        <div className="mb-6">
-          <h3 className="text-xl font-black text-[#1e1b2e]">Change Your Plan</h3>
-          <p className="text-sm text-gray-500 mt-1">All prices in Nigerian Naira (₦). Upgrades take effect immediately.</p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          {PLANS.map((plan) => {
-            const isCurrentPlan = plan.id === currentTier
-            const isUpgrading   = upgrading === plan.id
-            const Icon          = plan.icon
-            const isDowngrade   = PLANS.indexOf(plan) < PLANS.indexOf(currentPlan)
-
-            return (
-              <div
-                key={plan.id}
-                className={`relative rounded-[2rem] border-2 p-6 transition-all flex flex-col ${
-                  isCurrentPlan
-                    ? 'border-[#e91e8c] shadow-lg shadow-[#e91e8c]/10'
-                    : plan.highlight
-                    ? 'border-gray-200 hover:border-[#e91e8c]/40'
-                    : 'border-gray-100 hover:border-gray-200'
-                } ${plan.highlight && !isCurrentPlan ? 'bg-white' : 'bg-white'}`}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={savingProfile || uploadingLogo}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-xs text-white bg-[#4a1525] hover:bg-[#5c1d30] transition-all shadow-sm disabled:opacity-60"
               >
-                {/* Badges */}
-                {isCurrentPlan && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="bg-[#e91e8c] text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-sm">
-                      Current Plan
-                    </span>
-                  </div>
-                )}
-                {plan.highlight && !isCurrentPlan && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="bg-[#1e1b2e] text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+                {savingProfile && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Workspace Details
+              </button>
+            </div>
+          </form>
+        </div>
 
-                {/* Plan icon */}
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${
-                  isCurrentPlan ? 'bg-[#e91e8c]/10' : plan.highlight ? 'bg-purple-50' : 'bg-gray-100'
-                }`}>
-                  <Icon className={`w-5 h-5 ${isCurrentPlan ? 'text-[#e91e8c]' : plan.highlight ? 'text-purple-600' : 'text-gray-600'}`} />
+        {/* Current Plan & Usage */}
+        <div className="bg-white border border-stone-200/80 rounded-3xl p-7 sm:p-8 shadow-xs relative overflow-hidden">
+          <div className="relative z-10 space-y-6">
+
+            {/* Plan header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-1">Current Plan</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-2xl font-serif font-bold text-[#18131d]">{currentPlan.name}</h2>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#4a1525] text-white uppercase tracking-wider">
+                    Active
+                  </span>
                 </div>
+                <p className="text-[#4a1525] font-serif font-bold mt-1 text-xl">{currentPlan.formattedPrice}<span className="text-xs font-normal text-stone-500">{currentPlan.period}</span></p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-[#fbf0f3] flex items-center justify-center text-[#4a1525]">
+                {(() => {
+                  const IconComponent = PLAN_ICONS[currentCanonical] || Zap
+                  return <IconComponent className="w-6 h-6" />
+                })()}
+              </div>
+            </div>
 
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{plan.name}</p>
-                <div className="flex items-end gap-1 mt-1 mb-1">
-                  <span className="text-2xl font-black text-[#1e1b2e]">{plan.naira}</span>
-                  <span className="text-sm text-gray-400 font-semibold mb-0.5">{plan.period}</span>
+            {/* Usage meters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-[#FAF8F5] rounded-2xl p-5 border border-stone-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#4a1525]" />
+                    <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">Clients</span>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900">
+                    {usage.clients}{clientLimit !== Infinity ? ` / ${clientLimit}` : ' / ∞'}
+                  </span>
                 </div>
-                <p className="text-xs text-gray-400 mb-5">{plan.tagline}</p>
+                <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all bg-[#4a1525]"
+                    style={{
+                      width: clientLimit === Infinity ? '25%' : `${clientPct}%`,
+                    }}
+                  />
+                </div>
+              </div>
 
-                {/* Features */}
-                <ul className="space-y-2.5 mb-6 flex-1">
-                  {plan.features.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                      <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+              <div className="bg-[#FAF8F5] rounded-2xl p-5 border border-stone-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-[#4a1525]" />
+                    <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">Active Orders</span>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900">
+                    {usage.activeJobs}{jobLimit !== Infinity ? ` / ${jobLimit}` : ' / ∞'}
+                  </span>
+                </div>
+                <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all bg-[#4a1525]"
+                    style={{
+                      width: jobLimit === Infinity ? '25%' : `${jobPct}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
 
-                {/* CTA Button */}
-                <button
-                  onClick={() => !isCurrentPlan && !isUpgrading && handleUpgrade(plan.id)}
-                  disabled={isCurrentPlan || upgrading !== null}
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+          </div>
+        </div>
+
+        {/* Subscription Plan Switcher */}
+        <div id="billing-section" className="space-y-6">
+          <div>
+            <h3 className="text-xl font-serif font-bold text-[#18131d]">Subscription Plans</h3>
+            <p className="text-xs sm:text-sm text-stone-500 mt-0.5">All prices in NGN (₦). Secure transaction processing via Paystack.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {(['basic', 'designer_pro', 'fashion_studio'] as CanonicalPlanId[]).map((planId) => {
+              const plan = CANONICAL_PLANS[planId]
+              const isCurrentPlan = currentCanonical === planId
+              const isUpgradingThis = upgradingPlan === planId
+              const IconComponent = PLAN_ICONS[planId] || Zap
+              const isDowngrade = Object.keys(CANONICAL_PLANS).indexOf(planId) < Object.keys(CANONICAL_PLANS).indexOf(currentCanonical)
+
+              return (
+                <div
+                  key={planId}
+                  className={`relative rounded-3xl p-6 transition-all flex flex-col justify-between ${
                     isCurrentPlan
-                      ? 'bg-[#e91e8c]/10 text-[#e91e8c] cursor-default'
+                      ? 'bg-white border-2 border-[#4a1525] shadow-md'
                       : plan.highlight
-                      ? 'bg-[#e91e8c] text-white hover:bg-[#c4177a] shadow-lg shadow-[#e91e8c]/25'
-                      : isDowngrade
-                      ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      : 'bg-[#1e1b2e] text-white hover:bg-[#2d2540]'
-                  } disabled:opacity-60 disabled:cursor-not-allowed`}
+                      ? 'bg-[#18131d] text-white border-2 border-[#4a1525] shadow-lg'
+                      : 'bg-white text-stone-900 border border-stone-200/90 shadow-xs'
+                  }`}
                 >
-                  {isUpgrading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing…
-                    </>
-                  ) : isCurrentPlan ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Active Plan
-                    </>
-                  ) : isDowngrade ? (
-                    'Switch to Basic'
-                  ) : (
-                    <>
-                      {plan.id === 'free' ? 'Switch to Basic' : (
+                  {/* Badges */}
+                  {isCurrentPlan && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="bg-[#4a1525] text-white text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-xs">
+                        Current Plan
+                      </span>
+                    </div>
+                  )}
+                  {plan.badge && !isCurrentPlan && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
+                        plan.highlight ? 'bg-[#d9467c] text-white' : 'bg-stone-200 text-stone-800'
+                      }`}>
+                        {plan.badge}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-[#fbf0f3] flex items-center justify-center mb-4 text-[#4a1525]">
+                      <IconComponent className="w-5 h-5" />
+                    </div>
+
+                    <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.highlight && !isCurrentPlan ? 'text-[#d9467c]' : 'text-stone-500'}`}>
+                      {plan.name}
+                    </div>
+
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="font-serif text-2xl font-bold">{plan.formattedPrice}</span>
+                      <span className={`text-xs ${plan.highlight && !isCurrentPlan ? 'text-stone-400' : 'text-stone-500'}`}>{plan.period}</span>
+                    </div>
+
+                    <p className={`text-xs mb-5 leading-relaxed ${plan.highlight && !isCurrentPlan ? 'text-stone-300' : 'text-stone-600'}`}>
+                      {plan.tagline}
+                    </p>
+
+                    <ul className="space-y-2.5 mb-6 text-xs">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-center gap-2 font-medium">
+                          <Check className={`w-4 h-4 flex-shrink-0 ${plan.highlight && !isCurrentPlan ? 'text-[#d9467c]' : 'text-[#4a1525]'}`} />
+                          <span className={plan.highlight && !isCurrentPlan ? 'text-stone-200' : 'text-stone-700'}>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={() => !isCurrentPlan && !upgradingPlan && handleUpgrade(planId)}
+                      disabled={isCurrentPlan || upgradingPlan !== null}
+                      className={`w-full py-3 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 ${
+                        isCurrentPlan
+                          ? 'bg-stone-100 text-stone-500 cursor-default'
+                          : plan.highlight
+                          ? 'bg-[#4a1525] text-white hover:bg-[#5c1d30] shadow-md'
+                          : isDowngrade
+                          ? 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                          : 'bg-[#18131d] text-white hover:bg-stone-800'
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                    >
+                      {isUpgradingThis ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>{upgradeStatusText || 'Processing...'}</span>
+                        </>
+                      ) : isCurrentPlan ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Active Plan
+                        </>
+                      ) : (
                         <>
                           <CreditCard className="w-4 h-4" />
-                          Upgrade — {plan.naira}/mo
+                          {planId === 'basic' ? 'Switch to Basic' : `Upgrade to ${plan.name}`}
                         </>
                       )}
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                    </button>
 
-                {/* Payment trust badge */}
-                {!isCurrentPlan && plan.id !== 'free' && (
-                  <p className="text-center text-[10px] text-gray-400 mt-3 flex items-center justify-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                    Secured by Paystack
-                  </p>
-                )}
-              </div>
-            )
-          })}
+                    {!isCurrentPlan && planId !== 'basic' && (
+                      <p className="text-center text-[10px] text-stone-400 mt-2.5 flex items-center justify-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        Secured by Paystack
+                      </p>
+                    )}
+                  </div>
+
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Feature Comparison Table */}
-      <div className="bg-white border-2 border-gray-100 rounded-[2rem] p-7 shadow-sm">
-        <h3 className="text-base font-black text-[#1e1b2e] mb-5 flex items-center gap-2">
-          <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
-          What&apos;s included in each plan
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[420px]">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Feature</th>
-                <th className="text-center py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Basic</th>
-                <th className="text-center py-3 text-[10px] font-black text-[#e91e8c] uppercase tracking-widest">Designer Pro</th>
-                <th className="text-center py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Studio</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[
-                ['Clients Limit', '5 clients', '25 clients', 'Unlimited'],
-                ['Active Orders Limit', '3 orders', '20 orders', 'Unlimited'],
-                ['Invoicing & Payments', '✓', '✓', '✓'],
-                ['Client Review Links', '✓', '✓', '✓'],
-                ['Body Measurements', '✓', '✓', '✓'],
-                ['Advanced Analytics', '—', '✓', '✓'],
-                ['Priority Support', '—', '✓', '✓'],
-                ['Multi-Designer Access', '—', '—', '✓'],
-                ['White-Label Branding', '—', '—', '✓'],
-              ].map(([feature, basic, designer, studio]) => (
-                <tr key={feature}>
-                  <td className="py-3.5 font-semibold text-gray-700">{feature}</td>
-                  <td className="py-3.5 text-center font-bold text-gray-500">{basic}</td>
-                  <td className="py-3.5 text-center font-bold text-[#e91e8c]">{designer}</td>
-                  <td className="py-3.5 text-center font-bold text-gray-500">{studio}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Mobile Logout Button */}
+        <div className="sm:hidden pt-4">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-5 py-3.5 rounded-2xl text-xs font-bold text-rose-700 border border-rose-200 bg-rose-50 w-full justify-center"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out of Workspace
+          </button>
         </div>
-      </div>
 
-      {/* Mobile Logout */}
-      <div className="sm:hidden">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold text-red-500 border border-red-100 bg-red-50 w-full justify-center"
-        >
-          <LogOut className="w-4 h-4" />
-          Log Out of Workspace
-        </button>
       </div>
-    </div>
     </>
   )
 }

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { Database } from '@/types/database'
+import { normalizePlanId, getPlanConfig } from '@/lib/plans'
 
 export type Customer = Database['public']['Tables']['customers']['Row']
 
@@ -35,30 +36,19 @@ export async function addCustomer(formData: FormData) {
     .eq('id', user.id)
     .single()
 
-  const tier = profile?.subscription_tier || 'free'
+  const canonicalTier = normalizePlanId(profile?.subscription_tier)
+  const planConfig = getPlanConfig(canonicalTier)
 
-  if (tier === 'free') {
+  if (planConfig.limits.clients !== Infinity) {
     const { count, error: countError } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .eq('business_id', user.id)
 
-    if (!countError && count !== null && count >= 5) {
+    if (!countError && count !== null && count >= planConfig.limits.clients) {
       throw new Error(
-        "You've reached the 5-client limit on the Basic plan. " +
-        "Upgrade to Designer Pro to manage up to 25 clients, or Fashion Studio for unlimited clients."
-      )
-    }
-  } else if (tier === 'designer') {
-    const { count, error: countError } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact', head: true })
-      .eq('business_id', user.id)
-
-    if (!countError && count !== null && count >= 25) {
-      throw new Error(
-        "You've reached the 25-client limit on the Designer Pro plan. " +
-        "Upgrade to Fashion Studio for unlimited clients."
+        `You've reached the ${planConfig.limits.clients}-client limit on the ${planConfig.name} plan. ` +
+        `Upgrade to Designer Pro or Fashion Studio for expanded access.`
       )
     }
   }

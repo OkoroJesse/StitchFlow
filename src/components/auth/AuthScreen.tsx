@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { normalizePlanId } from '@/lib/plans'
 
 const inputClass = "block w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
 const inputStyle = { background: '#f8f7fc', border: '1.5px solid #ede9f6', color: '#1a1625' }
@@ -68,9 +69,9 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
       setLoginLoading(false) 
     } else {
       const params = new URLSearchParams(window.location.search)
-      const plan = params.get('plan')
-      const targetPlan = plan === 'basic' ? 'free' : plan
-      const redirectPath = targetPlan && ['free', 'designer', 'studio'].includes(targetPlan)
+      const rawPlan = params.get('plan')
+      const targetPlan = rawPlan ? normalizePlanId(rawPlan) : null
+      const redirectPath = targetPlan && targetPlan !== 'basic'
         ? `/dashboard/settings?upgradeNow=${targetPlan}`
         : '/dashboard'
       router.push(redirectPath)

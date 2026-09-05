@@ -32,7 +32,7 @@ const plans = [
     ],
   },
   {
-    id: 'designer',
+    id: 'designer_pro',
     name: 'Designer Pro',
     naira: '7,000',
     period: '/month',
@@ -40,7 +40,7 @@ const plans = [
     badge: 'Most Popular',
     highlight: true,
     cta: 'Start Designer Pro',
-    ctaHref: '/register?plan=designer',
+    ctaHref: '/register?plan=designer_pro',
     features: [
       { text: 'Up to 50 client profiles', included: true },
       { text: 'Up to 30 active projects', included: true },
@@ -54,7 +54,7 @@ const plans = [
     ],
   },
   {
-    id: 'studio',
+    id: 'fashion_studio',
     name: 'Fashion Studio',
     naira: '25,000',
     period: '/month',
@@ -62,7 +62,7 @@ const plans = [
     badge: 'Enterprise',
     highlight: false,
     cta: 'Start Fashion Studio',
-    ctaHref: '/register?plan=studio',
+    ctaHref: '/register?plan=fashion_studio',
     features: [
       { text: 'Unlimited client profiles', included: true },
       { text: 'Unlimited active projects', included: true },

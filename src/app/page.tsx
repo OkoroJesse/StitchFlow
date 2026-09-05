@@ -594,7 +594,7 @@ export default function HomePage() {
               </div>
 
               <Link
-                href="/register?plan=designer"
+                href="/register?plan=designer_pro"
                 className="w-full block text-center py-3 rounded-full text-xs font-bold bg-[#4a1525] text-white hover:bg-[#5c1d30] transition-all shadow-md"
               >
                 Start Designer Pro
@@ -632,7 +632,7 @@ export default function HomePage() {
               </div>
 
               <Link
-                href="/register?plan=studio"
+                href="/register?plan=fashion_studio"
                 className="w-full block text-center py-3 rounded-full text-xs font-bold bg-white text-[#18131d] border border-stone-300 hover:bg-stone-50 transition-all"
               >
                 Start Fashion Studio
