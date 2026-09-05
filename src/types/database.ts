@@ -79,27 +79,45 @@ export interface Database {
           business_id: string
           customer_id: string
           label: string
+          profile_name?: string | null
+          garment_type?: string | null
+          measurement_category?: string | null
+          unit?: string | null
+          notes?: string | null
           measurements: Json
           is_current: boolean
           created_at: string
+          updated_at?: string | null
         }
         Insert: {
           id?: string
           business_id: string
           customer_id: string
           label?: string
+          profile_name?: string | null
+          garment_type?: string | null
+          measurement_category?: string | null
+          unit?: string | null
+          notes?: string | null
           measurements: Json
           is_current?: boolean
           created_at?: string
+          updated_at?: string | null
         }
         Update: {
           id?: string
           business_id?: string
           customer_id?: string
           label?: string
+          profile_name?: string | null
+          garment_type?: string | null
+          measurement_category?: string | null
+          unit?: string | null
+          notes?: string | null
           measurements?: Json
           is_current?: boolean
           created_at?: string
+          updated_at?: string | null
         }
       }
       jobs: {

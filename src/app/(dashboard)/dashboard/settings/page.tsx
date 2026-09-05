@@ -380,18 +380,18 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(233,30,140,0.08)' }}>
-            <SettingsIcon className="w-6 h-6 text-[#e91e8c]" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-[#4a1525]">
+            <SettingsIcon className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-[#1e1b2e] tracking-tight">Studio Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your workspace, profile &amp; billing</p>
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 tracking-tight">Studio Settings</h1>
+            <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Manage your fashion workspace, atelier details &amp; subscription</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 transition-all"
+          className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 transition-all"
         >
           <LogOut className="w-4 h-4" />
           Log Out

@@ -1,46 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400;1,9..40,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
 @import "tailwindcss";
-
 
 /* ── StitchFlow Design Tokens ── */
 :root {
-  /* Brand Pink */
-  --brand-pink:       #e91e8c;
-  --brand-pink-light: #f03fa0;
-  --brand-pink-dark:  #c4177a;
-  --brand-pink-50:    #fdf2f8;
-  --brand-pink-100:   #fce7f3;
-  --brand-pink-200:   #fbcfe8;
+  /* Fashion Palette: Deep Wine, Plum, Warm Ivory, Slate Charcoal, Muted Rose */
+  --sf-wine:            #4a1525;
+  --sf-wine-hover:      #5c1d30;
+  --sf-wine-dark:       #380e1b;
+  --sf-wine-light:      #fbf0f3;
 
-  /* Sidebar / Dark Surface */
-  --sidebar-bg:       #1a1625;
-  --sidebar-hover:    #261f35;
-  --sidebar-active:   #e91e8c;
-  --sidebar-border:   #2d2540;
+  --sf-plum:            #18131d;
+  --sf-plum-surface:    #241e2b;
+  --sf-plum-hover:      #2e2737;
 
-  /* Neutral surfaces */
-  --bg-page:          #f8f7fc;
-  --bg-card:          #ffffff;
-  --border-default:   #ede9f6;
-  --border-light:     #f3f0fa;
+  --sf-ivory:           #FAF8F5;
+  --sf-ivory-dark:      #F4F0EA;
+  --sf-ivory-card:      #FFFFFF;
+  --sf-ivory-border:    #EFECE6;
 
-  /* Text */
-  --text-primary:     #1a1625;
-  --text-secondary:   #6b7280;
-  --text-muted:       #9ca3af;
+  --sf-charcoal:        #1C1917;
+  --sf-gray-subtle:     #57534E;
+  --sf-gray-muted:      #78716C;
+  --sf-gray-border:     #E7E5E4;
+  --sf-ivory-light:     #FAFAF8;
 
-  /* Accent purple */
-  --accent-purple:    #7c3aed;
-  --accent-purple-50: #f5f3ff;
+  --sf-rose:            #d9467c;
+  --sf-rose-bg:         #fdf2f5;
+  --sf-rose-border:     #fbcfe0;
 
-  --background: #f8f7fc;
-  --foreground: #1a1625;
+  /* Global Surface Defaults */
+  --background:         #FAF8F5;
+  --foreground:         #1C1917;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -49,55 +46,53 @@
 
 html, body {
   height: 100%;
-}
-
-body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar Styling */
+/* Editorial Font Family Helpers */
+.font-serif-editorial {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #e91e8c; }
+::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #d9467c; }
 
-/* ─── Global Compact Overrides for Dashboard ─── */
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe Area Inset Handling for Installed PWA / Mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0.5rem);
+}
+
+/* Form Controls Clean Styling Defaults */
 main input[type="text"], 
 main input[type="email"], 
 main input[type="password"], 
 main input[type="tel"], 
 main input[type="number"], 
+main input[type="date"], 
 main select, 
 main textarea {
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
-  font-size: 0.875rem !important;
-  border-radius: 0.75rem !important;
+  font-size: 0.875rem;
+  border-radius: 0.75rem;
 }
 
-main h1 {
-  font-size: 1.5rem !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.025em !important;
+/* Clean Image Container Defaults */
+.img-editorial-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
-
-main h2 {
-  font-size: 1.25rem !important;
-  font-weight: 700 !important;
-}
-
-main h3 {
-  font-size: 1.125rem !important;
-  font-weight: 700 !important;
-}
-
-/* Compact layout spacing */
-.space-y-8 {
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-}
-

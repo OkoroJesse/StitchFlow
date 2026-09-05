@@ -27,11 +27,21 @@ import {
   X
 } from 'lucide-react'
 import { Button } from '@/components/shared/button'
-import { MEASUREMENT_FIELDS, getStatusStyle, getStatusLabel, JOB_STATUSES, MeasurementValues } from '@/lib/constants'
+import { MEASUREMENT_FIELDS, getStatusStyle, getStatusLabel, JOB_STATUSES } from '@/lib/constants'
 import { updateCustomer, deleteCustomer } from '@/actions/customers'
-import { saveMeasurements, deleteMeasurement } from '@/actions/measurements'
+import { 
+  saveMeasurements, 
+  deleteMeasurement, 
+  duplicateMeasurement, 
+  updateMeasurement, 
+  setActiveMeasurement 
+} from '@/actions/measurements'
 import { updateJobStatus, deleteJob } from '@/actions/jobs'
 import { createInvoice, updateInvoiceStatus } from '@/actions/invoices'
+import MeasurementForm from '@/components/measurements/MeasurementForm'
+import MeasurementViewer from '@/components/measurements/MeasurementViewer'
+import MeasurementCompareModal from '@/components/measurements/MeasurementCompareModal'
+import { ArrowRightLeft } from 'lucide-react'
 
 interface Invoice {
   id: string
@@ -57,6 +67,11 @@ interface Job {
 interface MeasurementRecord {
   id: string
   label: string
+  profile_name?: string | null
+  garment_type?: string | null
+  measurement_category?: string | null
+  unit?: string | null
+  notes?: string | null
   measurements: any // JSON type
   is_current: boolean
   created_at: string
@@ -90,6 +105,8 @@ export default function CustomerProfileClient({ customer }: Props) {
   
   // Measurements states
   const [showAddMeasurements, setShowAddMeasurements] = useState(false)
+  const [editingRecord, setEditingRecord] = useState<any | null>(null)
+  const [isCompareOpen, setIsCompareOpen] = useState(false)
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(
     customer.measurements.find(m => m.is_current)?.id || customer.measurements[0]?.id || null
   )
@@ -140,28 +157,51 @@ export default function CustomerProfileClient({ customer }: Props) {
     }
   }
 
-  // Measurement Form Handler
-  const handleSaveMeasurements = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const label = formData.get('label') as string || 'Standard'
-    
-    const measurementsObj: Record<string, number> = {}
-    MEASUREMENT_FIELDS.forEach(field => {
-      const val = formData.get(field.key)
-      if (val) {
-        measurementsObj[field.key] = parseFloat(val as string)
+  // Save / Update Measurement Profile Handler
+  const handleSaveProfilePayload = async (payload: any) => {
+    startTransition(async () => {
+      try {
+        if (editingRecord) {
+          await updateMeasurement(editingRecord.id, customer.id, payload)
+          setEditingRecord(null)
+        } else {
+          const saved = await saveMeasurements(customer.id, payload)
+          setShowAddMeasurements(false)
+          setSelectedMeasurementId(saved.id)
+        }
+        router.refresh()
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to save measurement profile')
       }
     })
+  }
+
+  // Duplicate Measurement Profile Handler
+  const handleDuplicateProfileRecord = (record: any) => {
+    const defaultName = `Copy of ${record.profile_name || record.label || 'Profile'}`
+    const newName = prompt('Enter a name for the duplicated profile:', defaultName)
+    if (!newName || !newName.trim()) return
 
     startTransition(async () => {
       try {
-        const saved = await saveMeasurements(customer.id, measurementsObj, label)
-        setShowAddMeasurements(false)
-        setSelectedMeasurementId(saved.id)
+        const duplicated = await duplicateMeasurement(record.id, customer.id, newName.trim())
+        setSelectedMeasurementId(duplicated.id)
         router.refresh()
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Failed to save measurements')
+        alert(err instanceof Error ? err.message : 'Failed to duplicate profile')
+      }
+    })
+  }
+
+  // Make Active Measurement Handler
+  const handleMakeActiveRecord = (recordId: string) => {
+    startTransition(async () => {
+      try {
+        await setActiveMeasurement(recordId, customer.id)
+        setSelectedMeasurementId(recordId)
+        router.refresh()
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to activate profile')
       }
     })
   }
@@ -266,139 +306,137 @@ export default function CustomerProfileClient({ customer }: Props) {
 
       {/* 1. CUSTOMER PROFILE HEADER */}
       {isEditingProfile ? (
-        <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
+        <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
           <div className="flex justify-between items-start mb-6">
-            <h2 className="text-2xl font-extrabold text-[#1e1b2e]">Edit Client Details</h2>
-            <button onClick={() => setIsEditingProfile(false)} className="text-gray-400 hover:text-gray-600">
+            <h2 className="text-2xl font-serif font-bold text-stone-900">Edit Client Details</h2>
+            <button onClick={() => setIsEditingProfile(false)} className="text-stone-400 hover:text-stone-600">
               <X className="w-6 h-6" />
             </button>
           </div>
           <form onSubmit={handleUpdateProfile} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Full Name</label>
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Full Name</label>
                 <input
                   name="full_name"
                   defaultValue={customer.full_name}
                   required
-                  className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
+                  className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3.5 text-stone-900 focus:border-[#4a1525] focus:outline-none transition-all font-medium text-sm"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Phone Number</label>
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Phone Number</label>
                 <input
                   name="phone_number"
                   defaultValue={customer.phone_number}
                   required
-                  className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
+                  className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3.5 text-stone-900 focus:border-[#4a1525] focus:outline-none transition-all font-medium text-sm"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Email Address</label>
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Email Address</label>
                 <input
                   type="email"
                   name="email"
                   defaultValue={customer.email || ''}
-                  className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
+                  className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3.5 text-stone-900 focus:border-[#4a1525] focus:outline-none transition-all font-medium text-sm"
                   placeholder="client@email.com"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Studio/Home Address</label>
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Studio/Home Address</label>
                 <input
                   name="address"
                   defaultValue={customer.address}
                   required
-                  className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
+                  className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3.5 text-stone-900 focus:border-[#4a1525] focus:outline-none transition-all font-medium text-sm"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Designer Notes (Internal)</label>
+              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Designer Notes (Internal)</label>
               <textarea
                 name="notes"
                 rows={3}
                 defaultValue={customer.notes || ''}
-                className="w-full bg-[#FAFAF8] border border-gray-200 rounded-2xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-medium resize-none italic"
+                className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3.5 text-stone-900 focus:border-[#4a1525] focus:outline-none transition-all font-medium resize-none text-sm italic"
               />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setIsEditingProfile(false)}>Cancel</Button>
-              <Button type="submit" loading={isPending}>Save Changes</Button>
+              <Button type="submit" variant="primary" loading={isPending}>Save Changes</Button>
             </div>
           </form>
         </div>
       ) : (
-        <div className="bg-white border-2 border-gray-100 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 lg:p-8 relative overflow-hidden shadow-xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#e91e8c]/5 blur-[120px] -z-10 rounded-full" />
-          
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 sm:gap-6">
-            <div className="flex flex-row items-center gap-3 sm:gap-6 min-w-0">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-[#1e1b2e] rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-pink-500 text-2xl sm:text-4xl font-black shadow-lg shadow-[#e91e8c]/10 shrink-0">
+        <div className="bg-white border border-stone-200 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-sm">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex flex-row items-center gap-4 sm:gap-6 min-w-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-[#18131d] to-[#4a1525] rounded-2xl flex items-center justify-center text-rose-200 font-serif text-2xl sm:text-4xl font-bold shadow-md shrink-0">
                 {customer.full_name.charAt(0).toUpperCase()}
               </div>
-              <div className="space-y-1.5 sm:space-y-2 min-w-0">
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold text-[#1e1b2e] tracking-tight uppercase truncate">
+              <div className="space-y-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-stone-900 tracking-tight truncate">
                   {customer.full_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
-                  <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
-                    <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#e91e8c] flex-shrink-0" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-stone-600 text-xs sm:text-sm font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#4a1525]" />
                     <span>{customer.phone_number}</span>
                   </div>
                   {customer.email && (
-                    <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
-                      <span className="text-[#e91e8c] font-bold">@</span>
-                      <span className="truncate max-w-[120px] sm:max-w-none">{customer.email}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#4a1525] font-bold">@</span>
+                      <span className="truncate max-w-[150px] sm:max-w-none">{customer.email}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
-                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#e91e8c] flex-shrink-0" />
-                    <span className="truncate max-w-[130px] sm:max-w-none">{customer.address}</span>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#4a1525]" />
+                    <span className="truncate max-w-[150px] sm:max-w-none">{customer.address}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-              <div className="flex-1 sm:flex-none text-center px-4 sm:px-6 py-3 sm:py-4 bg-[#FAFAF8] rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] leading-none tracking-tight">{customer.jobs.length}</p>
-                <p className="text-[9px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider mt-1.5">Projects</p>
+            <div className="flex gap-3 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-none text-center px-5 py-3 bg-[#FAF8F5] rounded-2xl border border-stone-200">
+                <p className="text-xl font-serif font-bold text-stone-900 leading-none">{customer.jobs.length}</p>
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-widest mt-1">Total Projects</p>
               </div>
-              <div className="flex-1 sm:flex-none text-center px-4 sm:px-6 py-3 sm:py-4 bg-[#e91e8c]/5 rounded-xl sm:rounded-2xl border border-[#e91e8c]/10 shadow-sm">
-                <p className="text-xl sm:text-2xl font-extrabold text-[#e91e8c] leading-none tracking-tight">{activeJobs.length}</p>
-                <p className="text-[9px] sm:text-[11px] font-bold text-[#e91e8c]/80 uppercase tracking-wider mt-1.5">Active</p>
+              <div className="flex-1 sm:flex-none text-center px-5 py-3 bg-rose-50/50 rounded-2xl border border-rose-100">
+                <p className="text-xl font-serif font-bold text-[#4a1525] leading-none">{activeJobs.length}</p>
+                <p className="text-[10px] font-semibold text-rose-800 uppercase tracking-widest mt-1">In Production</p>
               </div>
             </div>
           </div>
 
           {customer.notes && (
-            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-[#FAFAF8] rounded-xl sm:rounded-2xl border border-gray-100 flex gap-3">
-              <FileText className="w-4 h-4 text-[#e91e8c] shrink-0 mt-0.5" />
-              <p className="text-sm font-medium text-gray-500 leading-relaxed italic">&ldquo;{customer.notes}&rdquo;</p>
+            <div className="mt-5 p-4 bg-[#FAF8F5] rounded-2xl border border-stone-200 flex gap-3">
+              <FileText className="w-4 h-4 text-[#4a1525] shrink-0 mt-0.5" />
+              <p className="text-xs sm:text-sm font-medium text-stone-600 leading-relaxed italic">&ldquo;{customer.notes}&rdquo;</p>
             </div>
           )}
         </div>
       )}
 
       {/* 2. TABS NAVIGATION */}
-      <div className="flex border-b border-gray-200 gap-4 sm:gap-8 overflow-x-auto pb-px">
+      <div className="flex border-b border-stone-200 gap-4 sm:gap-8 overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 py-3 px-1 font-semibold text-sm sm:text-base border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'orders'
-              ? 'border-[#e91e8c] text-[#e91e8c]'
-              : 'border-transparent text-gray-400 hover:text-gray-600'
+              ? 'border-[#4a1525] text-[#4a1525]'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span>Orders</span>
+          <ShoppingBag className="w-4 h-4" />
+          <span>Projects</span>
           {customer.jobs.length > 0 && (
-            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'orders' ? 'bg-[#e91e8c]/15 text-[#e91e8c]' : 'bg-gray-100 text-gray-500'
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === 'orders' ? 'bg-[#4a1525]/10 text-[#4a1525]' : 'bg-stone-100 text-stone-600'
             }`}>
               {customer.jobs.length}
             </span>
@@ -407,17 +445,17 @@ export default function CustomerProfileClient({ customer }: Props) {
 
         <button
           onClick={() => setActiveTab('measurements')}
-          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 py-3 px-1 font-semibold text-sm sm:text-base border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'measurements'
-              ? 'border-[#e91e8c] text-[#e91e8c]'
-              : 'border-transparent text-gray-400 hover:text-gray-600'
+              ? 'border-[#4a1525] text-[#4a1525]'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <Ruler className="w-4 h-4 sm:w-5 sm:h-5" />
+          <Ruler className="w-4 h-4" />
           <span>Measurements</span>
           {customer.measurements.length > 0 && (
-            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'measurements' ? 'bg-[#e91e8c]/15 text-[#e91e8c]' : 'bg-gray-100 text-gray-500'
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === 'measurements' ? 'bg-[#4a1525]/10 text-[#4a1525]' : 'bg-stone-100 text-stone-600'
             }`}>
               {customer.measurements.length}
             </span>
@@ -426,13 +464,13 @@ export default function CustomerProfileClient({ customer }: Props) {
 
         <button
           onClick={() => setActiveTab('invoices')}
-          className={`flex items-center gap-1.5 sm:gap-2.5 py-3 sm:py-4 px-1 font-bold text-sm sm:text-base border-b-4 transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 py-3 px-1 font-semibold text-sm sm:text-base border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'invoices'
-              ? 'border-[#e91e8c] text-[#e91e8c]'
-              : 'border-transparent text-gray-400 hover:text-gray-600'
+              ? 'border-[#4a1525] text-[#4a1525]'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
+          <CreditCard className="w-4 h-4" />
           <span>Invoices</span>
           {unpaidInvoices.length > 0 && (
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white animate-pulse">
@@ -591,191 +629,150 @@ export default function CustomerProfileClient({ customer }: Props) {
         {/* --- MEASUREMENTS TAB --- */}
         {activeTab === 'measurements' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-bold text-[#1e1b2e] uppercase tracking-tight">Dimensions & Fit</h3>
-              {!showAddMeasurements && (
-                <Button 
-                  icon={<Plus className="w-4 h-4" />} 
-                  onClick={() => setShowAddMeasurements(true)}
-                  className="px-5 py-2.5 text-sm h-10"
-                >
-                  Log Measurements
-                </Button>
-              )}
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#1e1b2e] uppercase tracking-tight">Dimensions & Specifications</h3>
+                <p className="text-xs text-gray-500">Categorized tailoring profiles and version history.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {customer.measurements.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    icon={<ArrowRightLeft className="w-4 h-4 text-[#e91e8c]" />}
+                    onClick={() => setIsCompareOpen(true)}
+                    className="px-4 py-2.5 text-xs sm:text-sm h-10 border border-pink-200 bg-pink-50 text-[#e91e8c]"
+                  >
+                    Compare Specs
+                  </Button>
+                )}
+                {!showAddMeasurements && !editingRecord && (
+                  <Button 
+                    icon={<Plus className="w-4 h-4" />} 
+                    onClick={() => setShowAddMeasurements(true)}
+                    className="px-5 py-2.5 text-xs sm:text-sm h-10 bg-[#1e1b2e] hover:bg-[#2d2540] text-white"
+                  >
+                    New Measurement Profile
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* In-Line Measurements Addition Form */}
-            {showAddMeasurements && (
-              <div className="bg-white border-2 border-[#e91e8c]/20 rounded-[2rem] p-6 shadow-lg relative animate-in fade-in duration-300">
-                <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-lg font-extrabold text-[#1e1b2e]">Record New Measurements</h4>
-                  <button 
-                    onClick={() => setShowAddMeasurements(false)} 
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded-lg bg-gray-50"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSaveMeasurements} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Record Label / Date</label>
-                    <input
-                      name="label"
-                      required
-                      defaultValue={`Standard (${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`}
-                      className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
-                      placeholder="e.g. Standard Fit, January Update"
-                    />
-                  </div>
-
-                  {/* Standard body measurements input matrix */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {MEASUREMENT_FIELDS.map((field) => (
-                      <div key={field.key} className="space-y-1 bg-[#FAFAF8] p-3.5 border border-gray-100 rounded-xl">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
-                          {field.label}
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            step="0.1"
-                            name={field.key}
-                            placeholder="0.0"
-                            defaultValue={displayedMeasurement?.measurements?.[field.key] || ''}
-                            className="w-full bg-transparent border-0 border-b border-gray-200 focus:border-[#e91e8c] focus:outline-none focus:ring-0 p-1 text-lg font-bold text-gray-900 pr-5"
-                          />
-                          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">in</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                    <Button type="button" variant="ghost" onClick={() => setShowAddMeasurements(false)}>Cancel</Button>
-                    <Button type="submit" loading={isPending}>Save Measurements</Button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {customer.measurements.length === 0 ? (
-              <div className="bg-white border-2 border-gray-100 border-dashed rounded-[2.5rem] p-16 text-center space-y-4">
+            {/* Render Measurement Form when adding or editing */}
+            {(showAddMeasurements || editingRecord) ? (
+              <MeasurementForm
+                customerName={customer.full_name}
+                initialData={editingRecord}
+                isPending={isPending}
+                onCancel={() => {
+                  setShowAddMeasurements(false)
+                  setEditingRecord(null)
+                }}
+                onSave={handleSaveProfilePayload}
+              />
+            ) : customer.measurements.length === 0 ? (
+              <div className="bg-white border-2 border-gray-100 border-dashed rounded-[2.5rem] p-12 sm:p-16 text-center space-y-4">
                 <div className="w-16 h-16 bg-[#FAFAF8] rounded-full flex items-center justify-center mx-auto">
                   <Ruler className="w-8 h-8 text-gray-400" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[#1e1b2e] font-bold">No dimensions logged yet</p>
-                  <p className="text-gray-500 text-sm">Please log a measurement to ensure perfect fit tailoring.</p>
+                  <p className="text-[#1e1b2e] font-bold text-lg">No measurement profiles logged yet</p>
+                  <p className="text-gray-500 text-sm">Log custom garment profiles for Men & Women to ensure perfect fit tailoring.</p>
                 </div>
-                {!showAddMeasurements && (
-                  <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowAddMeasurements(true)}>
-                    Log First Measurements
-                  </Button>
-                )}
+                <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowAddMeasurements(true)} className="px-6 py-3">
+                  Log First Profile
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Active measurements rendering card */}
-                <div className="lg:col-span-2 bg-white border-2 border-gray-100 rounded-[2.5rem] p-8 shadow-md relative overflow-hidden h-fit">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full" />
-                  
+                {/* Active/Selected Profile Viewer */}
+                <div className="lg:col-span-2">
                   {displayedMeasurement ? (
-                    <div>
-                      <div className="flex justify-between items-center mb-6">
-                        <div>
-                          <h4 className="text-xl font-extrabold text-[#1e1b2e] tracking-tight">
-                            {displayedMeasurement.label}
-                          </h4>
-                          <p className="text-xs text-gray-400 font-semibold uppercase mt-0.5 tracking-wider">
-                            Logged {new Date(displayedMeasurement.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {displayedMeasurement.is_current && (
-                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
-                            Active Spec
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Display measurements grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-                        {MEASUREMENT_FIELDS.map((field) => {
-                          const val = displayedMeasurement.measurements?.[field.key]
-                          return (
-                            <div key={field.key} className="bg-[#FAFAF8] p-4 border border-gray-100 rounded-2xl flex flex-col justify-between">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                {field.label}
-                              </span>
-                              <span className="text-2xl font-black text-[#1e1b2e] italic mt-2">
-                                {val !== undefined && val !== null ? `${val}"` : '—'}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    <MeasurementViewer
+                      record={displayedMeasurement}
+                      onEdit={() => setEditingRecord(displayedMeasurement)}
+                      onDuplicate={() => handleDuplicateProfileRecord(displayedMeasurement)}
+                      onDelete={() => handleDeleteMeasurementRecord(displayedMeasurement.id)}
+                      onMakeActive={!displayedMeasurement.is_current ? () => handleMakeActiveRecord(displayedMeasurement.id) : undefined}
+                    />
                   ) : (
-                    <div className="py-12 text-center text-gray-400">
-                      Select a measurement record to inspect.
+                    <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-12 text-center text-gray-400">
+                      Select a measurement record from history log to inspect.
                     </div>
                   )}
                 </div>
 
-                {/* History list card */}
-                <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-6 shadow-md h-fit">
-                  <h4 className="text-lg font-extrabold text-[#1e1b2e] mb-4 uppercase tracking-tight">Record Logs</h4>
-                  
-                  <div className="space-y-3">
-                    {customer.measurements.map((record) => (
-                      <div 
-                        key={record.id}
-                        onClick={() => setSelectedMeasurementId(record.id)}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
-                          (selectedMeasurementId === record.id || (!selectedMeasurementId && record.is_current))
-                            ? 'bg-[#1e1b2e] text-white border-[#1e1b2e] shadow-md shadow-[#1e1b2e]/10'
-                            : 'bg-white text-gray-700 border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                        }`}
+                {/* Profile History Sidebar */}
+                <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-6 shadow-md h-fit space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-[#1e1b2e] uppercase tracking-widest">
+                      Profile History ({customer.measurements.length})
+                    </h4>
+                    {customer.measurements.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsCompareOpen(true)}
+                        className="text-[10px] font-black text-[#e91e8c] uppercase tracking-wider hover:underline"
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold truncate text-base">{record.label}</p>
-                          <p className={`text-xs mt-1 ${
-                            (selectedMeasurementId === record.id || (!selectedMeasurementId && record.is_current))
-                              ? 'text-gray-300' : 'text-gray-400'
-                          }`}>
-                            {new Date(record.created_at).toLocaleDateString()}
-                          </p>
+                        Compare All
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {customer.measurements.map((record) => {
+                      const isSelected = selectedMeasurementId === record.id || (!selectedMeasurementId && record.is_current)
+                      const meta = record.measurements?._metadata || {}
+                      const pName = meta.profile_name || record.profile_name || record.label || 'Profile'
+                      const garment = meta.garment_type || record.garment_type || 'General'
+
+                      return (
+                        <div
+                          key={record.id}
+                          onClick={() => setSelectedMeasurementId(record.id)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between group ${
+                            isSelected
+                              ? 'bg-[#1e1b2e] text-white border-[#1e1b2e] shadow-md shadow-[#1e1b2e]/10'
+                              : 'bg-white text-gray-700 border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2 space-y-1">
+                            <p className="font-extrabold truncate text-sm">{pName}</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                isSelected ? 'bg-white/20 text-white' : 'bg-pink-50 text-[#e91e8c]'
+                              }`}>
+                                {garment}
+                              </span>
+                              <span className={`text-[10px] ${isSelected ? 'text-gray-300' : 'text-gray-400'}`}>
+                                {new Date(record.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {record.is_current && (
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                isSelected ? 'bg-[#e91e8c] text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              }`}>
+                                Active
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        
-                        <div className="flex items-center gap-2 shrink-0">
-                          {record.is_current && (
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                              (selectedMeasurementId === record.id || (!selectedMeasurementId && record.is_current))
-                                ? 'bg-[#e91e8c] text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                            }`}>
-                              Active
-                            </span>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteMeasurementRecord(record.id)
-                            }}
-                            className={`p-1.5 rounded-lg border transition-all ${
-                              (selectedMeasurementId === record.id || (!selectedMeasurementId && record.is_current))
-                                ? 'text-gray-400 hover:text-white border-gray-800 hover:bg-gray-800'
-                                : 'text-gray-400 hover:text-red-500 border-gray-100 hover:bg-red-50'
-                            }`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Compare Modal */}
+            <MeasurementCompareModal
+              isOpen={isCompareOpen}
+              onClose={() => setIsCompareOpen(false)}
+              records={customer.measurements}
+            />
           </div>
         )}
 

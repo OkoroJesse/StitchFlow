@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, User, Phone, MapPin, MoreVertical, Copy, Check, Trash2, ExternalLink, Mail } from 'lucide-react'
+import { Plus, Search, User, Phone, MapPin, MoreVertical, Copy, Check, Trash2, ExternalLink, Mail, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/shared/button'
 import { deleteCustomer } from '@/actions/customers'
 
@@ -29,7 +29,6 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -72,33 +71,18 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
   }
 
-  const getJobDateRange = (customer: Customer) => {
-    if (!customer.jobs || customer.jobs.length === 0) {
-      return formatDate(customer.created_at)
-    }
-    const dates = customer.jobs.map(j => j.created_at ? new Date(j.created_at).getTime() : 0).filter(Boolean)
-    const deliveryDates = customer.jobs.map(j => j.delivery_date ? new Date(j.delivery_date).getTime() : 0).filter(Boolean)
-    
-    if (dates.length === 0) return formatDate(customer.created_at)
-    
-    const minDate = new Date(Math.min(...dates))
-    const maxDate = deliveryDates.length > 0 ? new Date(Math.max(...deliveryDates)) : minDate
-    
-    return `${minDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`
-  }
-
   const getJobsAmount = (customer: Customer) => {
-    if (!customer.jobs || customer.jobs.length === 0) return '₦0.00'
+    if (!customer.jobs || customer.jobs.length === 0) return '₦0'
     const total = customer.jobs.reduce((sum, job) => sum + (job.agreed_price || 0), 0)
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 }).format(total)
+    return `₦${total.toLocaleString()}`
   }
 
   const getCustomerStatus = (customer: Customer) => {
     const activeJobs = customer.jobs?.filter(j => j.status !== 'delivered') || []
-    return activeJobs.length > 0 ? 'Active' : 'Inactive'
+    return activeJobs.length > 0 ? 'Active Project' : 'Client Profile'
   }
 
-  const getLatestJobSubject = (customer: Customer) => {
+  const getLatestProjectTitle = (customer: Customer) => {
     if (!customer.jobs || customer.jobs.length === 0) return 'No active projects'
     const sorted = [...customer.jobs].sort((a, b) => {
       return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
@@ -106,32 +90,19 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
     return sorted[0].title || 'Untitled Project'
   }
 
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      'bg-blue-100 text-blue-700',
-      'bg-purple-100 text-purple-700',
-      'bg-pink-100 text-pink-700',
-      'bg-indigo-100 text-indigo-700',
-      'bg-teal-100 text-teal-700',
-      'bg-amber-100 text-amber-700'
-    ]
-    const code = name.charCodeAt(0) || 0
-    return colors[code % colors.length]
-  }
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* HEADER WITH ACTIONS */}
+    <div className="space-y-6 animate-in fade-in duration-500 pb-16">
+      {/* HEADER WITH TITLE & ACTION */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#1e1b2e] tracking-tight flex items-center gap-2">
-            <span className="p-1.5 bg-[#e91e8c]/10 rounded-xl text-[#e91e8c]">
-              <User className="w-5 h-5" />
-            </span>
-            Clients Directory
+          <span className="text-[10px] font-black text-[#4a1525] uppercase tracking-widest bg-[#fbf0f3] px-3 py-1 rounded-full inline-block mb-1">
+            Fashion CRM
+          </span>
+          <h1 className="text-2xl font-extrabold text-[#18131d] tracking-tight">
+            Client Directory ({initialCustomers.length})
           </h1>
-          <p className="text-gray-500 mt-1 text-xs sm:text-sm">
-            Manage your customer database, measurements, and active orders.
+          <p className="text-stone-500 text-xs">
+            Manage your client profiles, body measurements, and active fashion projects.
           </p>
         </div>
         <Link href="/dashboard/customers/new" className="w-full sm:w-auto">
@@ -141,43 +112,42 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
         </Link>
       </div>
 
-      {/* SEARCH CONTROL */}
-      <div className="relative shadow-sm rounded-xl">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {/* SEARCH BAR */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name, phone, email, or address..."
-          className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#e91e8c]/10 focus:border-[#e91e8c] transition-all font-semibold text-sm"
+          placeholder="Search client name, phone number, email, or address..."
+          className="w-full bg-white border border-stone-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-[#18131d] focus:border-[#4a1525] focus:outline-none transition-all shadow-2xs"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-lg transition-all"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-2.5 py-1 rounded-lg transition-all"
           >
             Clear
           </button>
         )}
       </div>
 
-      {/* COMPACT TABLE LAYOUT */}
+      {/* CLIENTS TABLE / CARDS */}
       {filteredCustomers.length > 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-stone-200/80 rounded-3xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] text-gray-500 uppercase tracking-wider font-bold">
-                  <th className="px-5 py-3.5 font-bold">Client</th>
-                  <th className="px-5 py-3.5 font-bold">Email</th>
-                  <th className="px-5 py-3.5 font-bold">Create & End Date</th>
-                  <th className="px-5 py-3.5 font-bold">Amount</th>
-                  <th className="px-5 py-3.5 font-bold">Status</th>
-                  <th className="px-5 py-3.5 font-bold">Subject</th>
-                  <th className="px-5 py-3.5 w-10 text-right"></th>
+                <tr className="bg-[#FAF8F5] border-b border-stone-200/80 text-[10px] text-stone-400 uppercase tracking-widest font-black">
+                  <th className="px-6 py-4 font-black">Client</th>
+                  <th className="px-6 py-4 font-black">Contact & Email</th>
+                  <th className="px-6 py-4 font-black">Total Value</th>
+                  <th className="px-6 py-4 font-black">Status</th>
+                  <th className="px-6 py-4 font-black">Latest Project</th>
+                  <th className="px-6 py-4 w-12 text-right"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-stone-100">
                 {filteredCustomers.map((customer) => {
                   const status = getCustomerStatus(customer)
                   const isCopied = copiedId === customer.id
@@ -185,90 +155,79 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
                   return (
                     <tr 
                       key={customer.id} 
-                      className="hover:bg-gray-50/30 transition-colors text-xs text-gray-700"
+                      className="hover:bg-[#FAF8F5]/60 transition-colors text-xs text-stone-700 group"
                     >
                       {/* Name & Avatar */}
-                      <td className="px-5 py-3.5">
-                        <Link href={`/dashboard/customers/${customer.id}`} className="flex items-center gap-3 group">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm ${getAvatarColor(customer.full_name)}`}>
+                      <td className="px-6 py-4">
+                        <Link href={`/dashboard/customers/${customer.id}`} className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-[#4a1525] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
                             {customer.full_name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <span className="font-bold text-gray-900 group-hover:text-[#e91e8c] transition-colors block">
+                            <span className="font-extrabold text-[#18131d] group-hover:text-[#4a1525] transition-colors block text-sm">
                               {customer.full_name}
                             </span>
-                            <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
-                              <Phone className="w-3 h-3 text-gray-400" />
-                              {customer.phone_number || 'No Phone'}
+                            <span className="text-[11px] text-stone-400 font-medium">
+                              Client since {formatDate(customer.created_at)}
                             </span>
                           </div>
                         </Link>
                       </td>
 
-                      {/* Email with copy button */}
-                      <td className="px-5 py-3.5">
-                        {customer.email ? (
-                          <div>
-                            <span className="font-medium text-gray-800">{customer.email}</span>
-                            <button
-                              onClick={() => copyToClipboard(customer.email || '', customer.id)}
-                              className="flex items-center gap-1 mt-1 text-[9px] font-bold text-[#e91e8c] hover:text-[#c4177a] transition-colors"
-                            >
-                              {isCopied ? (
-                                <>
-                                  <Check className="w-2.5 h-2.5 text-emerald-500" />
-                                  <span className="text-emerald-600 font-bold">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-2.5 h-2.5" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic">No Email</span>
-                        )}
+                      {/* Phone & Email */}
+                      <td className="px-6 py-4">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-[#18131d] flex items-center gap-1.5">
+                            <Phone className="w-3 h-3 text-stone-400" />
+                            {customer.phone_number || 'No phone'}
+                          </p>
+                          {customer.email && (
+                            <p className="text-[11px] text-stone-400 flex items-center gap-1">
+                              <span>{customer.email}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(customer.email || '', customer.id)}
+                                className="text-[#4a1525] hover:underline text-[10px] font-bold ml-1"
+                              >
+                                {isCopied ? 'Copied' : 'Copy'}
+                              </button>
+                            </p>
+                          )}
+                        </div>
                       </td>
 
-                      {/* Created / Project date range */}
-                      <td className="px-5 py-3.5 text-gray-500 font-medium">
-                        {getJobDateRange(customer)}
-                      </td>
-
-                      {/* Total job value amount */}
-                      <td className="px-5 py-3.5 font-bold text-gray-900">
+                      {/* Total Projects Value */}
+                      <td className="px-6 py-4 font-black text-sm text-[#18131d]">
                         {getJobsAmount(customer)}
                       </td>
 
-                      {/* Status */}
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                          status === 'Active' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                            : 'bg-gray-50 text-gray-500 border-gray-200'
+                      {/* Status Badge */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                          status === 'Active Project'
+                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            : 'bg-stone-100 text-stone-600 border-stone-200'
                         }`}>
                           {status}
                         </span>
                       </td>
 
-                      {/* Subject (Latest Project) */}
-                      <td className="px-5 py-3.5">
-                        <span className="font-medium text-gray-800 line-clamp-1 max-w-[150px]">
-                          {getLatestJobSubject(customer)}
+                      {/* Latest Project */}
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-stone-800 line-clamp-1 max-w-[180px]">
+                          {getLatestProjectTitle(customer)}
                         </span>
                       </td>
 
-                      {/* Actions drop down */}
-                      <td className="px-5 py-3.5 text-right relative">
+                      {/* Action Dropdown */}
+                      <td className="px-6 py-4 text-right relative">
                         <div className="flex items-center justify-end">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveDropdown(activeDropdown === customer.id ? null : customer.id)
                             }}
-                            className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="p-2 rounded-xl hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
@@ -276,15 +235,15 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
                           {activeDropdown === customer.id && (
                             <div 
                               ref={dropdownRef}
-                              className="absolute right-5 mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-xl z-50 text-left overflow-hidden py-1"
-                              style={{ top: '65%' }}
+                              className="absolute right-6 mt-2 w-40 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 text-left overflow-hidden py-1"
+                              style={{ top: '70%' }}
                             >
                               <Link
                                 href={`/dashboard/customers/${customer.id}`}
-                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 text-gray-700 text-xs font-semibold"
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-[#FAF8F5] text-stone-800 text-xs font-bold"
                                 onClick={() => setActiveDropdown(null)}
                               >
-                                <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                                <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
                                 View Profile
                               </Link>
                               <button
@@ -292,7 +251,7 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
                                   setActiveDropdown(null)
                                   handleDelete(customer.id, customer.full_name)
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 text-red-600 text-xs font-semibold"
+                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 text-xs font-bold"
                               >
                                 <Trash2 className="w-3.5 h-3.5 text-red-400" />
                                 Delete Client
@@ -309,14 +268,14 @@ export default function CustomerListClient({ initialCustomers }: CustomerListCli
           </div>
         </div>
       ) : (
-        <div className="py-16 text-center bg-white border border-gray-200 border-dashed rounded-2xl space-y-4">
-          <div className="w-14 h-14 bg-[#f8f7fc] rounded-2xl flex items-center justify-center mx-auto">
-            <User className="w-7 h-7 text-gray-400" />
+        <div className="py-16 text-center bg-white border-2 border-dashed border-stone-200 rounded-3xl space-y-4">
+          <div className="w-14 h-14 bg-[#FAF8F5] rounded-full flex items-center justify-center mx-auto text-stone-400">
+            <User className="w-7 h-7" />
           </div>
           <div className="space-y-1 max-w-md mx-auto px-4">
-            <p className="text-[#1e1b2e] font-bold text-base">No clients found</p>
-            <p className="text-gray-500 text-xs">
-              {searchQuery ? "Try refining your search query or clear the filter to see all clients." : "Add your first client to start recording measurements and jobs."}
+            <p className="text-[#18131d] font-bold text-base">No client profiles found</p>
+            <p className="text-stone-500 text-xs">
+              {searchQuery ? "Try refining your search query to find your client." : "Add your first client to start recording body measurements and fashion projects."}
             </p>
           </div>
           {!searchQuery && (

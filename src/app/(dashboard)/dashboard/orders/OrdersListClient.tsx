@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, ShoppingBag, Calendar, Clock, Scissors, CreditCard, ExternalLink, ChevronRight } from 'lucide-react'
+import Image from 'next/image'
+import { Plus, Search, Scissors, Calendar, ChevronRight, Layers, Tag } from 'lucide-react'
 import { Button } from '@/components/shared/button'
-import { getStatusStyle, getStatusLabel, JOB_STATUSES } from '@/lib/constants'
+import { StatusBadge } from '@/components/shared/StatusBadge'
+import { JOB_STATUSES } from '@/lib/constants'
 
 interface Customer {
   id: string
@@ -29,7 +31,7 @@ interface Props {
   initialJobs: Job[]
 }
 
-export default function OrdersListClient({ initialJobs }: Props) {
+export default function ProjectsList({ initialJobs }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -49,53 +51,57 @@ export default function OrdersListClient({ initialJobs }: Props) {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
       {/* HEADER WITH ACTIONS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#1e1b2e] tracking-tight flex items-center gap-3">
-            <span className="p-2 bg-[#e91e8c]/10 rounded-2xl text-[#e91e8c]">
-              <ShoppingBag className="w-8 sm:w-9 h-8 sm:h-9" />
-            </span>
-            Orders
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-br from-[#18131d] to-[#2c1b26] p-6 sm:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-[#4a1525]/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 space-y-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-rose-300 uppercase tracking-widest">
+            <Scissors className="w-4 h-4 text-rose-400" />
+            <span>Garment Production Workflow</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-white">
+            Client Projects
           </h1>
-          <p className="text-gray-500 mt-2 text-base sm:text-lg font-medium">
-            Track and update fabrication workflow streams for all active customer orders.
+          <p className="text-stone-300 text-sm sm:text-base max-w-xl font-light">
+            Monitor active commissions, garment fitting schedules, cutting steps, and delivery timelines across all atelier clients.
           </p>
         </div>
-        <Link href="/dashboard/orders/new" className="w-full sm:w-auto">
-          <Button icon={<Plus className="w-5 h-5" />} className="w-full sm:w-auto px-8 py-4 text-lg">
-            New Order
-          </Button>
-        </Link>
+        <div className="relative z-10 w-full sm:w-auto shrink-0">
+          <Link href="/dashboard/orders/new">
+            <Button variant="primary" icon={<Plus className="w-5 h-5" />} className="w-full sm:w-auto shadow-rose-900/30">
+              New Project
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* SEARCH & FILTERS */}
-      <div className="flex flex-col gap-6">
-        <div className="relative group shadow-sm rounded-2xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400 group-focus-within:text-[#e91e8c] transition-colors" />
+      <div className="space-y-4">
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400 group-focus-within:text-[#4a1525] transition-colors" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by order title or client name..."
-            className="w-full bg-white border border-gray-200 rounded-2xl py-4.5 pl-13 pr-4 text-gray-900 focus:outline-none focus:ring-4 focus:ring-[#e91e8c]/10 focus:border-[#e91e8c] transition-all font-semibold text-lg"
+            placeholder="Search projects by garment title, client name..."
+            className="w-full bg-white border border-stone-200 rounded-2xl py-3.5 pl-12 pr-4 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4a1525]/20 focus:border-[#4a1525] transition-all text-sm sm:text-base font-medium shadow-sm"
           />
         </div>
 
-        {/* Status Filters Horizontal List */}
+        {/* Status Filters Horizontal Scroll */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-5 py-2.5 rounded-full font-bold text-sm border-2 shrink-0 transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide border transition-all shrink-0 flex items-center gap-2 ${
               statusFilter === 'all'
-                ? 'bg-[#1e1b2e] text-white border-[#1e1b2e] shadow-md shadow-[#1e1b2e]/10'
-                : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200'
+                ? 'bg-[#18131d] text-white border-[#18131d] shadow-sm'
+                : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
             }`}
           >
-            <span>All Orders</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
-              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+            <span>All Projects</span>
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-700'
             }`}>
               {getCount('all')}
             </span>
@@ -107,15 +113,15 @@ export default function OrdersListClient({ initialJobs }: Props) {
               <button
                 key={status.value}
                 onClick={() => setStatusFilter(status.value)}
-                className={`px-5 py-2.5 rounded-full font-bold text-sm border-2 shrink-0 transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide border transition-all shrink-0 flex items-center gap-2 ${
                   isActive
-                    ? 'bg-[#1e1b2e] text-white border-[#1e1b2e] shadow-md'
-                    : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200'
+                    ? 'bg-[#18131d] text-white border-[#18131d] shadow-sm'
+                    : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
                 }`}
               >
                 <span>{status.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-700'
                 }`}>
                   {getCount(status.value)}
                 </span>
@@ -125,9 +131,9 @@ export default function OrdersListClient({ initialJobs }: Props) {
         </div>
       </div>
 
-      {/* ORDERS DISPLAY GRID */}
+      {/* PROJECTS GRID */}
       {filteredJobs.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredJobs.map((job) => {
             const isUrgent = job.status !== 'delivered' && new Date(job.delivery_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
             
@@ -135,56 +141,77 @@ export default function OrdersListClient({ initialJobs }: Props) {
               <Link 
                 key={job.id} 
                 href={`/dashboard/customers/${job.customer_id}`}
-                className="group block transition-all hover:-translate-y-1"
+                className="group block transition-all duration-300 hover:-translate-y-1"
               >
-                <div className={`bg-white border-2 rounded-[2rem] p-6.5 hover:border-[#e91e8c]/20 transition-all shadow-lg hover:shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 ${
-                  isUrgent ? 'border-amber-200 bg-amber-50/10' : 'border-gray-100'
+                <div className={`bg-white border rounded-2xl p-5 hover:shadow-xl transition-all relative overflow-hidden flex flex-col justify-between h-full ${
+                  isUrgent ? 'border-amber-300 bg-amber-50/10' : 'border-stone-200 hover:border-[#4a1525]/30'
                 }`}>
                   
-                  {/* Left Column: Avatar/Status & Main text */}
-                  <div className="flex items-start sm:items-center gap-5 min-w-0">
-                    <div className="w-14 h-14 bg-[#1e1b2e] rounded-2xl flex items-center justify-center shrink-0 text-pink-500 shadow-md group-hover:scale-105 transition-transform duration-300">
-                      <Scissors className="w-6 h-6" />
-                    </div>
-                    
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <h3 className="text-xl font-extrabold text-[#1e1b2e] tracking-tight group-hover:text-[#e91e8c] transition-colors line-clamp-1">
-                          {job.title}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(job.status)}`}>
-                          {getStatusLabel(job.status)}
+                  {/* Top Bar: Status Badge & Urgent Pill */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <StatusBadge status={job.status} size="sm" />
+                      {isUrgent && (
+                        <span className="bg-amber-500 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                          Due Soon
                         </span>
-                        {isUrgent && (
-                          <span className="bg-amber-500 text-white px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider animate-pulse">
-                            Urgent
-                          </span>
+                      )}
+                    </div>
+
+                    {/* Title & Client Name */}
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-stone-900 group-hover:text-[#4a1525] transition-colors line-clamp-1">
+                        {job.title}
+                      </h3>
+                      <p className="text-xs font-medium text-[#4a1525] mt-0.5">
+                        {job.customers?.full_name || 'Client Unassigned'}
+                      </p>
+                    </div>
+
+                    {/* Image Preview Thumbnails (Fabric / Style) if present */}
+                    {(job.fabric_image_url || job.style_image_url) && (
+                      <div className="flex gap-2 pt-1">
+                        {job.fabric_image_url && (
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 shrink-0">
+                            <Image
+                              src={job.fabric_image_url}
+                              alt="Fabric preview"
+                              fill
+                              className="object-cover"
+                            />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center font-medium py-0.5">
+                              Fabric
+                            </span>
+                          </div>
+                        )}
+                        {job.style_image_url && (
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 shrink-0">
+                            <Image
+                              src={job.style_image_url}
+                              alt="Style reference"
+                              fill
+                              className="object-cover"
+                            />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center font-medium py-0.5">
+                              Style
+                            </span>
+                          </div>
                         )}
                       </div>
-                      
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500 font-semibold">
-                        <span className="text-[#e91e8c] font-bold uppercase tracking-wide">
-                          {job.customers?.full_name || 'Anonymous Client'}
-                        </span>
-                        <span className="text-gray-300">•</span>
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span>Deadline: {new Date(job.delivery_date).toLocaleDateString()}</span>
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Right Column: Pricing & Action Button */}
-                  <div className="flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t border-gray-100 md:border-t-0">
-                    <div className="text-left md:text-right shrink-0">
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Agreed Price</p>
-                      <p className="text-2xl font-black text-[#1e1b2e] italic mt-0.5">₦{job.agreed_price.toLocaleString()}</p>
+                  {/* Bottom Meta & Price */}
+                  <div className="pt-4 mt-4 border-t border-stone-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-stone-500">
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                      <span>{new Date(job.delivery_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
-                    
-                    <div className="flex items-center gap-2 font-bold text-[#e91e8c] text-sm md:opacity-0 group-hover:opacity-100 transition-all">
-                      <span>View Client Hub</span>
-                      <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+
+                    <div className="text-right">
+                      <p className="font-serif text-base font-bold text-stone-900">
+                        ₦{job.agreed_price.toLocaleString()}
+                      </p>
                     </div>
                   </div>
 
@@ -194,21 +221,21 @@ export default function OrdersListClient({ initialJobs }: Props) {
           })}
         </div>
       ) : (
-        <div className="py-24 text-center bg-white border-2 border-gray-100 border-dashed rounded-[3rem] space-y-6">
-          <div className="w-20 h-20 bg-[#fbfbf9] rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-            <ShoppingBag className="w-10 h-10 text-gray-400" />
+        <div className="py-20 text-center bg-white border border-dashed border-stone-200 rounded-3xl space-y-5 p-6">
+          <div className="w-16 h-16 bg-[#FAF8F5] rounded-2xl flex items-center justify-center mx-auto text-stone-400">
+            <Layers className="w-8 h-8 text-[#4a1525]" />
           </div>
-          <div className="space-y-2 max-w-md mx-auto px-4">
-            <p className="text-[#1e1b2e] font-extrabold text-xl">No orders found</p>
-            <p className="text-gray-500 text-base">
+          <div className="space-y-1 max-w-sm mx-auto">
+            <p className="text-stone-900 font-serif font-bold text-lg">No projects match filters</p>
+            <p className="text-stone-500 text-xs sm:text-sm">
               {searchQuery || statusFilter !== 'all' 
                 ? "Try adjusting your search query or status filters."
-                : "Create an order workflow for one of your clients to get started."}
+                : "Begin a new bespoke project for your clients."}
             </p>
           </div>
           {!searchQuery && statusFilter === 'all' && (
             <Link href="/dashboard/orders/new" className="inline-block">
-              <Button icon={<Plus className="w-5 h-5" />}>Add Your First Order</Button>
+              <Button variant="primary" icon={<Plus className="w-4 h-4" />}>Create First Project</Button>
             </Link>
           )}
         </div>

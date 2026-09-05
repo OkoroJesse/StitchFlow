@@ -118,7 +118,6 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
       setRegError(error.message)
       setRegLoading(false) 
     } else if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
-      // Supabase returns successful sign up with empty identities if the email already exists
       setRegError('This email is already registered. Please sign in instead.')
       setRegLoading(false)
     } else { 
@@ -127,32 +126,30 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
     }
   }
 
-
-
   return (
-    <div className="flex min-h-screen items-center justify-center p-4" style={{ background: '#f8f7fc', fontFamily: "'DM Sans', sans-serif" }}>
-      <div className="relative w-full max-w-5xl lg:h-[560px] bg-white rounded-3xl shadow-2xl overflow-hidden flex" style={{ border: '1px solid #ede9f6', boxShadow: '0 25px 80px rgba(233,30,140,0.08), 0 8px 32px rgba(0,0,0,0.06)' }}>
+    <div className="flex min-h-screen items-center justify-center p-4 bg-[#FAF8F5]">
+      <div className="relative w-full max-w-4xl lg:h-[560px] bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex">
 
-        {/* ─── FORM SIDE (left on desktop, full on mobile) ─── */}
+        {/* ─── FORM SIDE ─── */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center p-7 lg:p-10 relative z-10 overflow-y-auto">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 mb-6">
-            <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" style={{ filter: 'drop-shadow(0 2px 6px rgba(233,30,140,0.25))' }} />
-            <span className="text-lg font-bold" style={{ color: '#1a1625' }}>Stitch<span style={{ color: '#e91e8c' }}>Flow</span></span>
+          <Link href="/" className="flex items-center gap-2 mb-6">
+            <Image src="/logo.png" alt="StitchFlow" width={36} height={36} className="object-contain" />
+            <span className="text-xl font-serif font-bold text-stone-900">Stitch<span className="text-[#4a1525]">Flow</span></span>
           </Link>
 
           {/* Mode Tabs */}
-          <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: '#f8f7fc', border: '1px solid #ede9f6' }}>
+          <div className="flex gap-1 p-1 rounded-xl mb-6 bg-[#FAF8F5] border border-stone-200">
             {(['login', 'register'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => switchMode(m)}
-                className="flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize"
-                style={mode === m 
-                  ? { background: '#e91e8c', color: 'white', boxShadow: '0 2px 8px rgba(233,30,140,0.3)' }
-                  : { background: 'transparent', color: '#9ca3af' }
-                }
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all capitalize ${
+                  mode === m 
+                    ? 'bg-[#18131d] text-white shadow-xs' 
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
               >
                 {m === 'login' ? 'Sign In' : 'Create Account'}
               </button>
@@ -162,28 +159,41 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
           {/* LOGIN FORM */}
           {mode === 'login' && (
             <div>
-              <h2 className="text-2xl font-bold mb-1" style={{ color: '#1a1625' }}>Welcome back 👋</h2>
-              <p className="text-sm mb-6" style={{ color: '#9ca3af' }}>Log in to manage your fashion workflow.</p>
+              <h2 className="text-2xl font-serif font-bold text-stone-900 mb-1">Welcome back</h2>
+              <p className="text-xs text-stone-500 mb-6 font-medium">Log in to access your fashion workspace.</p>
 
               <form className="space-y-4" onSubmit={handleLogin}>
                 {loginError && (
-                  <div className="rounded-xl p-3 text-sm border" style={{ background: '#fdf2f8', borderColor: '#fce7f3', color: '#c4177a' }}>
+                  <div className="rounded-xl p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 font-medium">
                     {loginError}
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6b7280' }}>Email Address</label>
-                  <FocusInput type="email" placeholder="tailor@stitchflow.com" value={loginEmail} onChange={(e: any) => setLoginEmail(e.target.value)} required />
+                  <label className="block text-xs font-semibold text-stone-600 mb-1">Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="tailor@stitchflow.com" 
+                    value={loginEmail} 
+                    onChange={(e) => setLoginEmail(e.target.value)} 
+                    required 
+                    className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3 text-stone-900 text-sm focus:outline-none focus:border-[#4a1525]"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6b7280' }}>Password</label>
-                  <FocusInput type="password" placeholder="••••••••" value={loginPassword} onChange={(e: any) => setLoginPassword(e.target.value)} required />
+                  <label className="block text-xs font-semibold text-stone-600 mb-1">Password</label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)} 
+                    required 
+                    className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3 text-stone-900 text-sm focus:outline-none focus:border-[#4a1525]"
+                  />
                 </div>
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60 mt-2"
-                  style={{ background: 'linear-gradient(135deg, #e91e8c, #c4177a)', boxShadow: '0 4px 15px rgba(233,30,140,0.3)' }}
+                  className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-[#4a1525] hover:bg-[#18131d] transition-all disabled:opacity-60 shadow-sm mt-2"
                 >
                   {loginLoading ? 'Signing in…' : 'Sign In →'}
                 </button>
@@ -196,47 +206,65 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
             <div>
               {regSuccess ? (
                 <div className="text-center space-y-3 py-4">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#f0fdf4' }}>
-                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+                    ✓
                   </div>
-                  <h2 className="text-xl font-bold" style={{ color: '#1a1625' }}>Check your email!</h2>
-                  <p className="text-sm" style={{ color: '#9ca3af' }}>
-                    We've sent a verification link to <strong style={{ color: '#1a1625' }}>{regEmail}</strong>.
+                  <h2 className="text-xl font-serif font-bold text-stone-900">Check your email!</h2>
+                  <p className="text-xs text-stone-500">
+                    We've sent a verification link to <strong className="text-stone-900">{regEmail}</strong>.
                   </p>
-                  <button onClick={() => switchMode('login')} className="mt-4 text-sm font-bold" style={{ color: '#e91e8c' }}>
+                  <button onClick={() => switchMode('login')} className="mt-4 text-xs font-bold text-[#4a1525] hover:underline">
                     Back to Sign In →
                   </button>
                 </div>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold mb-1" style={{ color: '#1a1625' }}>Create Workspace 🎉</h2>
-                  <p className="text-sm mb-6" style={{ color: '#9ca3af' }}>Start managing your fashion business today.</p>
+                  <h2 className="text-2xl font-serif font-bold text-stone-900 mb-1">Create Workspace</h2>
+                  <p className="text-xs text-stone-500 mb-6 font-medium">Start managing your fashion studio today.</p>
 
                   <form className="space-y-4" onSubmit={handleRegister}>
                     {regError && (
-                      <div className="rounded-xl p-3 text-sm border" style={{ background: '#fdf2f8', borderColor: '#fce7f3', color: '#c4177a' }}>
+                      <div className="rounded-xl p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 font-medium">
                         {regError}
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6b7280' }}>Business Name</label>
-                      <FocusInput type="text" placeholder="Luxe by Phavour" value={regBusinessName} onChange={(e: any) => setRegBusinessName(e.target.value)} required />
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Business / Atelier Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="Luxe by Phavour" 
+                        value={regBusinessName} 
+                        onChange={(e) => setRegBusinessName(e.target.value)} 
+                        required 
+                        className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3 text-stone-900 text-sm focus:outline-none focus:border-[#4a1525]"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6b7280' }}>Email Address</label>
-                      <FocusInput type="email" placeholder="tailor@stitchflow.com" value={regEmail} onChange={(e: any) => setRegEmail(e.target.value)} required />
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="tailor@stitchflow.com" 
+                        value={regEmail} 
+                        onChange={(e) => setRegEmail(e.target.value)} 
+                        required 
+                        className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3 text-stone-900 text-sm focus:outline-none focus:border-[#4a1525]"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6b7280' }}>Password</label>
-                      <FocusInput type="password" placeholder="••••••••" value={regPassword} onChange={(e: any) => setRegPassword(e.target.value)} required />
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Password</label>
+                      <input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        value={regPassword} 
+                        onChange={(e) => setRegPassword(e.target.value)} 
+                        required 
+                        className="w-full bg-[#FAF8F5] border border-stone-200 rounded-xl p-3 text-stone-900 text-sm focus:outline-none focus:border-[#4a1525]"
+                      />
                     </div>
                     <button
                       type="submit"
                       disabled={regLoading}
-                      className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60 mt-2"
-                      style={{ background: 'linear-gradient(135deg, #e91e8c, #7c3aed)', boxShadow: '0 4px 15px rgba(233,30,140,0.25)' }}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-[#4a1525] hover:bg-[#18131d] transition-all disabled:opacity-60 shadow-sm mt-2"
                     >
                       {regLoading ? 'Creating Workspace…' : 'Create Workspace →'}
                     </button>
@@ -247,37 +275,23 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
           )}
         </div>
 
-        {/* ─── VISUAL SIDE (right panel — desktop only) ─── */}
-        <div className="hidden lg:flex w-1/2 flex-col items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1625 0%, #2d1b4e 50%, #1a1625 100%)' }}>
-          {/* Decorative blobs */}
-          <div className="absolute w-64 h-64 rounded-full opacity-20" style={{ background: '#e91e8c', top: '-10%', right: '-15%', filter: 'blur(60px)' }} />
-          <div className="absolute w-48 h-48 rounded-full opacity-15" style={{ background: '#7c3aed', bottom: '-5%', left: '-10%', filter: 'blur(50px)' }} />
-
-          {/* Logo + Illustration */}
-          <div className="relative z-10 flex flex-col items-center text-center px-10">
-            {/* Logo mark */}
-            <div className="mb-4 flex flex-col items-center">
-              <Image src="/logo.png" alt="StitchFlow" width={110} height={110} className="object-contain" style={{ filter: 'brightness(1.15) drop-shadow(0 4px 16px rgba(233,30,140,0.5))' }} />
-            </div>
-            <div className="mb-6 flex justify-center">
-              <div className="bg-white p-3 rounded-[2rem] shadow-2xl border border-gray-100/10 flex items-center justify-center w-[140px] sm:w-[160px] aspect-[2/3] transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                <img src="/mannequin.png" alt="Designer Mannequin" className="w-full h-full object-contain" />
-              </div>
+        {/* ─── VISUAL SIDE ─── */}
+        <div className="hidden lg:flex w-1/2 flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#18131d] via-[#2c1b26] to-[#4a1525]">
+          <div className="relative z-10 flex flex-col items-center text-center px-10 space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xs flex items-center justify-center p-2 mb-2 border border-white/20">
+              <Image src="/logo.png" alt="StitchFlow" width={48} height={48} className="object-contain" />
             </div>
 
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {mode === 'login' ? 'New to StitchFlow?' : 'Welcome Back!'}
+            <h2 className="text-2xl font-serif font-bold text-white">
+              Fashion Workflow Operating System
             </h2>
-            <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.6)', maxWidth: '260px' }}>
-              {mode === 'login'
-                ? 'Create your workspace and streamline your entire fashion business.'
-                : 'Sign in to continue managing your clients, measurements, and orders.'}
+            <p className="text-xs text-rose-200/80 leading-relaxed max-w-xs font-light">
+              Tailored measurement profiles, fitting calendars, client CRM, and commission tracking for bespoke fashion studios.
             </p>
 
-            {/* Stats pills */}
-            <div className="flex gap-2 mt-4 flex-wrap justify-center">
-              {['500+ Designers', '99.9% Uptime', 'Free to Start'].map(s => (
-                <span key={s} className="text-[10px] font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(233,30,140,0.2)', color: '#f9a8d4' }}>
+            <div className="flex gap-2 pt-2 flex-wrap justify-center">
+              {['Tailoring CRM', 'Measurement Engine', 'Real-Time Workflow'].map(s => (
+                <span key={s} className="text-[10px] font-semibold px-3 py-1 rounded-full bg-white/10 text-rose-200 border border-white/10">
                   {s}
                 </span>
               ))}
@@ -289,3 +303,4 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
     </div>
   )
 }
+

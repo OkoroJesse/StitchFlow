@@ -27,6 +27,7 @@ import { addCustomer } from '@/actions/customers'
 import { saveMeasurements } from '@/actions/measurements'
 import { createJob } from '@/actions/jobs'
 import { uploadImage } from '@/lib/supabase/storage'
+import MeasurementForm from '@/components/measurements/MeasurementForm'
 
 interface Customer {
   id: string
@@ -39,6 +40,7 @@ interface Customer {
     label: string
     is_current: boolean
     measurements: any
+    created_at?: string
   }>
 }
 
@@ -133,32 +135,14 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
     })
   }
 
-  // Step 2: Select/Log Measurements
-  const handleSaveMeasurementsStep = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  // Step 2: Select/Log Measurements Form Payload Handler
+  const handleSaveMeasurementPayload = async (payload: any) => {
     if (!selectedCustomer) return
     setError(null)
 
-    if (measurementMode === 'use-existing' && selectedMeasurementId) {
-      setStep(3)
-      return
-    }
-
-    // Capture measurements form values
-    const formData = new FormData(e.currentTarget)
-    const measurementsObj: Record<string, number> = {}
-    MEASUREMENT_FIELDS.forEach(field => {
-      const val = formData.get(field.key)
-      if (val) {
-        measurementsObj[field.key] = parseFloat(val as string)
-      }
-    })
-
-    const label = (formData.get('label') as string) || 'Standard Spec'
-
     startTransition(async () => {
       try {
-        const saved = await saveMeasurements(selectedCustomer.id, measurementsObj, label)
+        const saved = await saveMeasurements(selectedCustomer.id, payload)
         setSelectedMeasurementId(saved.id)
         
         // Update customer local measurements cache
@@ -172,7 +156,6 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
           return c
         })
         setCustomers(updatedCusts)
-        
         setStep(3)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to save measurements')
@@ -231,16 +214,16 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       
       {/* HEADER SECTION WITH STEP TRACKER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-gray-200">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-stone-200">
+        <div className="flex items-center gap-3">
           <Link href="/dashboard/orders">
-            <button className="w-12 h-12 rounded-2xl bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#1e1b2e] hover:border-gray-300 transition-all shadow-sm">
-              <ArrowLeft className="w-6 h-6" />
+            <button className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-600 hover:text-[#18131d] hover:border-stone-300 transition-all shadow-xs">
+              <ArrowLeft className="w-5 h-5" />
             </button>
           </Link>
           <div>
-            <h1 className="text-3xl font-extrabold text-[#1e1b2e] tracking-tight uppercase">New Order Wizard</h1>
-            <p className="text-gray-500 text-sm font-semibold mt-1">Unified client registration, measurements, and project stream</p>
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 tracking-tight">New Project Creator</h1>
+            <p className="text-stone-500 text-xs sm:text-sm font-medium mt-0.5">Streamlined client selection, garment measurements, and production details</p>
           </div>
         </div>
 
@@ -248,18 +231,18 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
         <div className="flex items-center gap-2">
           {[1, 2, 3].map((num) => (
             <div key={num} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs transition-colors ${
                 step === num 
-                  ? 'bg-[#e91e8c] text-white shadow-md shadow-[#e91e8c]/20'
+                  ? 'bg-[#4a1525] text-white shadow-sm'
                   : step > num
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-white border-2 border-gray-100 text-gray-400'
+                    ? 'bg-rose-900 text-white'
+                    : 'bg-white border border-stone-200 text-stone-400'
               }`}>
                 {step > num ? <Check className="w-4 h-4" /> : num}
               </div>
               {num < 3 && (
-                <div className={`w-8 h-0.5 mx-1.5 transition-colors ${
-                  step > num ? 'bg-emerald-500' : 'bg-gray-200'
+                <div className={`w-6 h-0.5 mx-1 transition-colors ${
+                  step > num ? 'bg-rose-900' : 'bg-stone-200'
                 }`} />
               )}
             </div>
@@ -428,7 +411,7 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
             </h2>
           </div>
 
-          <form onSubmit={handleSaveMeasurementsStep} className="space-y-8">
+          <div className="space-y-8">
             {/* Toggle selection mode */}
             {selectedCustomer.measurements && selectedCustomer.measurements.length > 0 && (
               <div className="flex gap-4 p-1 bg-gray-100 rounded-xl w-fit">
@@ -459,85 +442,75 @@ export default function OrderWizardClient({ initialCustomers }: Props) {
 
             {measurementMode === 'use-existing' && selectedCustomer.measurements && selectedCustomer.measurements.length > 0 ? (
               /* Display list of existing measurements for selection */
-              <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-6 shadow-md max-w-2xl">
-                <h3 className="font-extrabold text-[#1e1b2e] text-lg mb-4">Select Reference Log</h3>
+              <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-6 shadow-md max-w-2xl space-y-6">
+                <h3 className="font-extrabold text-[#1e1b2e] text-lg">Select Reference Measurement Profile</h3>
                 <div className="space-y-3">
-                  {selectedCustomer.measurements.map((record) => (
-                    <label
-                      key={record.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        selectedMeasurementId === record.id
-                          ? 'border-[#e91e8c] bg-[#e91e8c]/5'
-                          : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="selected_measurement"
-                          checked={selectedMeasurementId === record.id}
-                          onChange={() => setSelectedMeasurementId(record.id)}
-                          className="text-[#e91e8c] focus:ring-[#e91e8c] h-4 w-4"
-                        />
-                        <div>
-                          <p className="font-extrabold text-gray-900">{record.label}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Active dimensions: {Object.keys(record.measurements || {}).length} logged
-                          </p>
+                  {selectedCustomer.measurements.map((record) => {
+                    const meta = record.measurements?._metadata || {}
+                    const name = meta.profile_name || record.label || 'Profile'
+                    const garment = meta.garment_type || 'General'
+
+                    return (
+                      <label
+                        key={record.id}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                          selectedMeasurementId === record.id
+                            ? 'border-[#e91e8c] bg-[#e91e8c]/5 shadow-xs'
+                            : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="selected_measurement"
+                            checked={selectedMeasurementId === record.id}
+                            onChange={() => setSelectedMeasurementId(record.id)}
+                            className="text-[#e91e8c] focus:ring-[#e91e8c] h-4 w-4"
+                          />
+                          <div>
+                            <p className="font-extrabold text-gray-900 text-sm">{name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="bg-pink-50 text-[#e91e8c] text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
+                                {garment}
+                              </span>
+                              <span className="text-[11px] text-gray-400">
+                                {record.created_at ? new Date(record.created_at).toLocaleDateString() : ''}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      {record.is_current && (
-                        <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-black uppercase">
-                          Current
-                        </span>
-                      )}
-                    </label>
-                  ))}
+                        {record.is_current && (
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase">
+                            Active
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                  <Button type="button" variant="ghost" onClick={() => setStep(1)}>Back</Button>
+                  <Button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    disabled={!selectedMeasurementId}
+                    className="bg-[#1e1b2e] text-white"
+                  >
+                    Continue to Order Details
+                  </Button>
                 </div>
               </div>
             ) : (
-              /* Inline form to take new measurements */
-              <div className="bg-white border-2 border-gray-100 rounded-[2.5rem] p-8 shadow-md space-y-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Record Label / Title</label>
-                  <input
-                    name="label"
-                    required
-                    defaultValue={`Standard Fit (${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`}
-                    className="w-full bg-[#FAFAF8] border border-gray-200 rounded-xl p-4 text-gray-900 focus:border-[#e91e8c] focus:outline-none transition-all font-semibold"
-                    placeholder="e.g. Standard, Wedding Outfit"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {MEASUREMENT_FIELDS.map((field) => (
-                    <div key={field.key} className="space-y-1 bg-[#FAFAF8] p-3.5 border border-gray-100 rounded-xl">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
-                        {field.label}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          name={field.key}
-                          placeholder="0.0"
-                          className="w-full bg-transparent border-0 border-b border-gray-200 focus:border-[#e91e8c] focus:outline-none focus:ring-0 p-1 text-lg font-bold text-gray-900 pr-5"
-                        />
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">in</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              /* Inline MeasurementForm builder */
+              <MeasurementForm
+                customerName={selectedCustomer.full_name}
+                isPending={isPending}
+                onCancel={() => setStep(1)}
+                onSave={handleSaveMeasurementPayload}
+              />
             )}
-
-            <div className="flex gap-3 pt-6 border-t border-gray-100">
-              <Button type="button" variant="ghost" onClick={() => setStep(1)}>Back</Button>
-              <Button type="submit" loading={isPending} disabled={measurementMode === 'use-existing' && !selectedMeasurementId}>
-                Continue to Order Details
-              </Button>
-            </div>
-          </form>
+          </div>
         </div>
       )}
 
