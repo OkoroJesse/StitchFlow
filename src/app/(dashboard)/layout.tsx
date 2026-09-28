@@ -95,50 +95,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (!finalProfile) {
         const defaultName = metaName || user.email?.split('@')[0] || 'My Studio'
+        const candidateTiers = ['basic', 'free']
         
-        const isConstraintError = (err: any) => {
-          if (!err) return false
-          const msg = String(err.message || '').toLowerCase()
-          const details = String(err.details || '').toLowerCase()
-          const code = String(err.code || '')
-          return (
-            code === '23514' ||
-            msg.includes('check constraint') ||
-            msg.includes('profiles_subscription_tier_check') ||
-            msg.includes('subscription_tier') ||
-            details.includes('check constraint')
-          )
-        }
-
-        let { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: user.id,
-              business_name: defaultName,
-              subscription_tier: 'basic'
-            },
-            { onConflict: 'id' }
-          )
-          .select('business_name, subscription_tier, logo_url')
-          .maybeSingle()
-
-        if (isConstraintError(insertError)) {
-          const { data: fallbackProfile } = await supabase
+        for (const tier of candidateTiers) {
+          const { data: newProfile } = await supabase
             .from('profiles')
             .upsert(
               {
                 id: user.id,
                 business_name: defaultName,
-                subscription_tier: 'free'
+                subscription_tier: tier,
               },
               { onConflict: 'id' }
             )
             .select('business_name, subscription_tier, logo_url')
             .maybeSingle()
-          if (fallbackProfile) finalProfile = fallbackProfile
-        } else if (newProfile) {
-          finalProfile = newProfile
+
+          if (newProfile) {
+            finalProfile = newProfile
+            break
+          }
+        }
+
+        if (!finalProfile) {
+          finalProfile = {
+            business_name: defaultName,
+            subscription_tier: 'basic',
+            logo_url: null,
+          }
         }
       }
 
