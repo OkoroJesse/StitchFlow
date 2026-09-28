@@ -218,7 +218,7 @@ export default function SettingsPage() {
 
       // Paid Plan Initialization
       const { access_code, reference } = initData
-      const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+      const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY
 
       // Fallback: If no public key is present in client environment (e.g. dev demo mode)
       if (!paystackKey) {
