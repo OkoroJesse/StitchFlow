@@ -23,11 +23,13 @@ export async function POST(req: Request) {
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY
     if (!secretKey) {
-      console.error('[Paystack Server] Error: PAYSTACK_SECRET_KEY environment variable is not configured.')
+      console.warn('[Paystack Server] Warning: PAYSTACK_SECRET_KEY is not set. Allowing demo mode upgrade.')
       return NextResponse.json({
-        success: false,
-        error: 'Paystack payment provider is not configured on the server. Please contact support.'
-      }, { status: 500 })
+        success: true,
+        isDemoMode: true,
+        planId: canonicalPlan,
+        message: 'Paystack secret key is not set on Vercel. Upgrading workspace in Demo Mode.'
+      })
     }
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

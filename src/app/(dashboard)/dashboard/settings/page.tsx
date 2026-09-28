@@ -201,6 +201,21 @@ export default function SettingsPage() {
         return
       }
 
+      // If in demo mode (secret key unconfigured on Vercel environment)
+      if (initData.isDemoMode) {
+        const directRes = await updateSubscriptionTier(targetPlanId)
+        if (directRes.success) {
+          const targetConfig = getPlanConfig(targetPlanId)
+          setProfile(prev => prev ? { ...prev, subscription_tier: targetPlanId } : prev)
+          setSuccessMsg(`🎉 Welcome to ${targetConfig.name}! (Workspace upgraded in Demo Mode)`)
+          router.refresh()
+        } else {
+          setErrorMsg(directRes.error || 'Failed to update workspace.')
+        }
+        setUpgradingPlan(null)
+        return
+      }
+
       // Paid Plan Initialization
       const { access_code, reference } = initData
       const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
