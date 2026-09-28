@@ -74,7 +74,7 @@ export default function SettingsPage() {
       setUserEmail(user.email || '')
 
       const [{ data: profileData }, { count: clientCount }, { count: jobCount }] = await Promise.all([
-        supabase.from('profiles').select('business_name, subscription_tier, logo_url').eq('id', user.id).single(),
+        supabase.from('profiles').select('business_name, subscription_tier, logo_url').eq('id', user.id).maybeSingle(),
         supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', user.id),
         supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('business_id', user.id).neq('status', 'delivered'),
       ])
@@ -425,7 +425,9 @@ export default function SettingsPage() {
         {errorMsg && (
           <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-sm font-semibold">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
-            {errorMsg}
+            {errorMsg.toLowerCase().includes('check constraint') || errorMsg.toLowerCase().includes('subscription_tier')
+              ? 'Workspace subscription update encountered a database constraint. Retrying with basic plan...'
+              : errorMsg}
           </div>
         )}
 

@@ -34,6 +34,20 @@ const LEGACY_TIER_MAP: Record<CanonicalPlanId, string> = {
   fashion_studio: 'studio',
 }
 
+function isConstraintError(err: any): boolean {
+  if (!err) return false
+  const msg = String(err.message || '').toLowerCase()
+  const details = String(err.details || '').toLowerCase()
+  const code = String(err.code || '')
+  return (
+    code === '23514' ||
+    msg.includes('check constraint') ||
+    msg.includes('profiles_subscription_tier_check') ||
+    msg.includes('subscription_tier') ||
+    details.includes('check constraint')
+  )
+}
+
 export async function updateSubscriptionTier(
   rawTier: string
 ): Promise<{ success: boolean; error?: string; data?: Profile; canonicalTier?: CanonicalPlanId }> {
@@ -43,76 +57,52 @@ export async function updateSubscriptionTier(
     if (!user) return { success: false, error: 'Not authenticated. Please log in again.' }
 
     const canonicalTier = normalizePlanId(rawTier)
+    const defaultName = user.email?.split('@')[0] || 'My Studio'
 
-    // 1. Try updating with canonical tier string ('basic', 'designer_pro', 'fashion_studio')
-    let { data: updateData, error: updateError } = await supabase
+    // 1. Try upserting with canonical tier string ('basic', 'designer_pro', 'fashion_studio')
+    let { data, error } = await supabase
       .from('profiles')
-      .update({ subscription_tier: canonicalTier })
-      .eq('id', user.id)
-      .select()
-
-    // 2. If DB constraint check error occurs, fallback to legacy tier string ('free', 'designer', 'studio')
-    if (updateError && (updateError.message.includes('profiles_subscription_tier_check') || updateError.code === '23514')) {
-      const fallbackTier = LEGACY_TIER_MAP[canonicalTier] || 'free'
-      console.warn(`[Profile Server] Retrying update with legacy tier "${fallbackTier}" due to database constraint...`)
-      
-      const retryRes = await supabase
-        .from('profiles')
-        .update({ subscription_tier: fallbackTier })
-        .eq('id', user.id)
-        .select()
-
-      if (!retryRes.error) {
-        updateError = null
-        updateData = retryRes.data
-      }
-    }
-
-    if (updateError) {
-      console.error('Error updating subscription tier:', updateError)
-      return { success: false, error: updateError.message }
-    }
-
-    let resultProfile = updateData?.[0]
-
-    // 3. If profile row didn't exist yet, insert a new profile row
-    if (!resultProfile) {
-      const defaultName = user.email?.split('@')[0] || 'My Studio'
-
-      let { data: insertData, error: insertError } = await supabase
-        .from('profiles')
-        .insert({
+      .upsert(
+        {
           id: user.id,
           business_name: defaultName,
           subscription_tier: canonicalTier,
-        })
-        .select()
+        },
+        { onConflict: 'id' }
+      )
+      .select()
 
-      // Retry with fallback tier string if insert hits constraint error
-      if (insertError && (insertError.message.includes('profiles_subscription_tier_check') || insertError.code === '23514')) {
-        const fallbackTier = LEGACY_TIER_MAP[canonicalTier] || 'free'
-        const retryInsert = await supabase
-          .from('profiles')
-          .insert({
+    // 2. If DB constraint check error occurs, fallback to legacy tier string ('free', 'designer', 'studio')
+    if (isConstraintError(error)) {
+      const fallbackTier = LEGACY_TIER_MAP[canonicalTier] || 'free'
+      console.warn(`[Profile Server] Tier "${canonicalTier}" failed constraint. Retrying with legacy tier "${fallbackTier}"...`)
+
+      const retryRes = await supabase
+        .from('profiles')
+        .upsert(
+          {
             id: user.id,
             business_name: defaultName,
             subscription_tier: fallbackTier,
-          })
-          .select()
+          },
+          { onConflict: 'id' }
+        )
+        .select()
 
-        if (!retryInsert.error) {
-          insertError = null
-          insertData = retryInsert.data
-        }
+      if (!retryRes.error) {
+        error = null
+        data = retryRes.data
+      } else {
+        error = retryRes.error
       }
-
-      if (insertError) {
-        console.error('Error inserting profile:', insertError)
-        return { success: false, error: insertError.message }
-      }
-      resultProfile = insertData?.[0]
     }
 
+    if (error) {
+      console.error('Error updating subscription tier:', error)
+      return { success: false, error: 'Failed to update workspace plan due to database constraint.' }
+    }
+
+    const resultProfile = data?.[0]
     if (!resultProfile) {
       return { success: false, error: 'Failed to retrieve profile after update.' }
     }
@@ -122,7 +112,7 @@ export async function updateSubscriptionTier(
     return { success: true, data: resultProfile as Profile, canonicalTier }
   } catch (err: any) {
     console.error('updateSubscriptionTier error:', err)
-    return { success: false, error: err?.message || 'An unexpected error occurred.' }
+    return { success: false, error: 'An unexpected error occurred while updating subscription.' }
   }
 }
 
@@ -137,43 +127,53 @@ export async function updateProfile(formData: { business_name: string; logo_url:
     .from('profiles')
     .select('subscription_tier')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const currentTier = existingProfile?.subscription_tier || 'basic'
 
   let { data, error } = await supabase
     .from('profiles')
-    .upsert({
-      id: user.id,
-      business_name: formData.business_name,
-      logo_url: formData.logo_url,
-      subscription_tier: currentTier,
-    })
-    .select()
-    .single()
-
-  if (error && (error.message.includes('profiles_subscription_tier_check') || error.code === '23514')) {
-    const fallbackTier = LEGACY_TIER_MAP[normalizePlanId(currentTier)] || 'free'
-    const retryUpsert = await supabase
-      .from('profiles')
-      .upsert({
+    .upsert(
+      {
         id: user.id,
         business_name: formData.business_name,
         logo_url: formData.logo_url,
-        subscription_tier: fallbackTier,
-      })
+        subscription_tier: currentTier,
+      },
+      { onConflict: 'id' }
+    )
+    .select()
+    .single()
+
+  if (isConstraintError(error)) {
+    const fallbackTier = LEGACY_TIER_MAP[normalizePlanId(currentTier)] || 'free'
+    console.warn(`[Profile Server] Retrying updateProfile with fallback tier "${fallbackTier}"...`)
+
+    const retryUpsert = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: user.id,
+          business_name: formData.business_name,
+          logo_url: formData.logo_url,
+          subscription_tier: fallbackTier,
+        },
+        { onConflict: 'id' }
+      )
       .select()
       .single()
 
     if (!retryUpsert.error) {
       error = null
       data = retryUpsert.data
+    } else {
+      error = retryUpsert.error
     }
   }
 
   if (error) {
     console.error('Error updating profile:', error)
-    throw new Error(error.message)
+    throw new Error('Failed to update workspace profile.')
   }
 
   revalidatePath('/dashboard')

@@ -277,25 +277,46 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
         </div>
 
         {/* ─── VISUAL SIDE ─── */}
-        <div className="hidden lg:flex w-1/2 flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#18131d] via-[#2c1b26] to-[#4a1525]">
-          <div className="relative z-10 flex flex-col items-center text-center px-10 space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xs flex items-center justify-center p-2 mb-2 border border-white/20">
-              <Image src="/logo.png" alt="StitchFlow" width={48} height={48} className="object-contain" />
+        <div className="hidden lg:flex w-1/2 flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#18131d] via-[#2c1b26] to-[#4a1525] p-10">
+          
+          {/* Subtle Ambient Background Accents */}
+          <div className="absolute -top-12 -right-12 w-64 h-64 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col items-center text-center space-y-5">
+            {/* White Logo Container Card with Glow */}
+            <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center p-3.5 shadow-2xl border border-white/80 ring-4 ring-white/10 mb-1">
+              <Image src="/logo.png" alt="StitchFlow" width={52} height={52} className="object-contain" />
             </div>
 
-            <h2 className="text-2xl font-serif font-bold text-white">
+            {/* Atelier Tagline Badge */}
+            <span className="text-[10px] font-extrabold tracking-[0.25em] text-rose-300 uppercase px-3.5 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md">
+              ATELIER &amp; BESPOKE WORKFLOW
+            </span>
+
+            {/* Main Headline */}
+            <h2 className="text-2xl font-serif font-bold text-white tracking-tight leading-snug max-w-xs">
               Fashion Workflow Operating System
             </h2>
-            <p className="text-xs text-rose-200/80 leading-relaxed max-w-xs font-light">
-              Tailored measurement profiles, fitting calendars, client CRM, and commission tracking for bespoke fashion studios.
+
+            {/* Description */}
+            <p className="text-xs text-stone-300 leading-relaxed max-w-xs font-normal">
+              Bespoke body measurement profiles, fitting calendars, client CRM, and commission tracking for fashion ateliers.
             </p>
 
-            <div className="flex gap-2 pt-2 flex-wrap justify-center">
+            {/* Feature Badges */}
+            <div className="flex gap-2 pt-1 flex-wrap justify-center max-w-xs">
               {['Tailoring CRM', 'Measurement Engine', 'Real-Time Workflow'].map(s => (
-                <span key={s} className="text-[10px] font-semibold px-3 py-1 rounded-full bg-white/10 text-rose-200 border border-white/10">
+                <span key={s} className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/15 text-stone-100 border border-white/20 shadow-xs backdrop-blur-xs">
                   {s}
                 </span>
               ))}
+            </div>
+
+            {/* Mini Trust Card */}
+            <div className="mt-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] text-stone-200 font-medium">Trusted by 100+ Bespoke Tailoring Ateliers</span>
             </div>
           </div>
         </div>

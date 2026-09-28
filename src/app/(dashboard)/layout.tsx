@@ -95,16 +95,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (!finalProfile) {
         const defaultName = metaName || user.email?.split('@')[0] || 'My Studio'
-        const { data: newProfile } = await supabase
+        
+        const isConstraintError = (err: any) => {
+          if (!err) return false
+          const msg = String(err.message || '').toLowerCase()
+          const details = String(err.details || '').toLowerCase()
+          const code = String(err.code || '')
+          return (
+            code === '23514' ||
+            msg.includes('check constraint') ||
+            msg.includes('profiles_subscription_tier_check') ||
+            msg.includes('subscription_tier') ||
+            details.includes('check constraint')
+          )
+        }
+
+        let { data: newProfile, error: insertError } = await supabase
           .from('profiles')
-          .insert({
-            id: user.id,
-            business_name: defaultName,
-            subscription_tier: 'basic'
-          })
+          .upsert(
+            {
+              id: user.id,
+              business_name: defaultName,
+              subscription_tier: 'basic'
+            },
+            { onConflict: 'id' }
+          )
           .select('business_name, subscription_tier, logo_url')
-          .single()
-        if (newProfile) finalProfile = newProfile
+          .maybeSingle()
+
+        if (isConstraintError(insertError)) {
+          const { data: fallbackProfile } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: user.id,
+                business_name: defaultName,
+                subscription_tier: 'free'
+              },
+              { onConflict: 'id' }
+            )
+            .select('business_name, subscription_tier, logo_url')
+            .maybeSingle()
+          if (fallbackProfile) finalProfile = fallbackProfile
+        } else if (newProfile) {
+          finalProfile = newProfile
+        }
       }
 
       setProfile(finalProfile)
