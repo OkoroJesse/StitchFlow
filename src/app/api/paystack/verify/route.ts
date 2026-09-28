@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getPlanConfig, normalizePlanId } from '@/lib/plans'
+import { updateSubscriptionTier } from '@/actions/profile'
 
 export async function POST(req: Request) {
   try {
@@ -73,21 +74,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Paid amount does not match plan price.' }, { status: 400 })
     }
 
-    // 4. Update user profile subscription_tier in Supabase
+    // 4. Update user profile subscription_tier using updateSubscriptionTier helper
     console.log(`[Paystack Verify Success]: Updating profile ${user.id} subscription_tier to "${targetPlanId}"`)
 
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .update({ subscription_tier: targetPlanId })
-      .eq('id', user.id)
-      .select()
-      .single()
+    const updateRes = await updateSubscriptionTier(targetPlanId)
 
-    if (updateError) {
-      console.error('[Paystack Verify DB Error]: Failed to update subscription_tier in profiles:', updateError)
+    if (!updateRes.success) {
+      console.error('[Paystack Verify DB Error]: Failed to update subscription_tier in profiles:', updateRes.error)
       return NextResponse.json({
         success: false,
-        error: `Payment succeeded, but workspace update failed: ${updateError.message}`
+        error: `Payment succeeded, but workspace update failed: ${updateRes.error}`
       }, { status: 500 })
     }
 
@@ -96,7 +92,7 @@ export async function POST(req: Request) {
       planId: targetPlanId,
       planName: expectedConfig.name,
       message: `Your ${expectedConfig.name} subscription has been activated!`,
-      profile: updatedProfile,
+      profile: updateRes.data,
     })
 
   } catch (err: any) {
