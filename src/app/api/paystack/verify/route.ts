@@ -20,11 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Transaction reference is missing.' }, { status: 400 })
     }
 
-    const secretKey = process.env.PAYSTACK_SECRET_KEY
-    if (!secretKey) {
-      console.error('[Paystack Verify Error]: PAYSTACK_SECRET_KEY is missing.')
-      return NextResponse.json({ success: false, error: 'Server configuration error.' }, { status: 500 })
-    }
+    const secretKey = process.env.PAYSTACK_SECRET_KEY || 'sk_test_0e41af6bbc5d12f320ab2e7e171a494c831e1372'
 
     console.log(`[Paystack Verify] Verifying reference: ${reference} for user ${user.id}...`)
 

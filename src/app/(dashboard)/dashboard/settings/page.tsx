@@ -201,73 +201,86 @@ export default function SettingsPage() {
         return
       }
 
-      // If in demo mode (secret key unconfigured on Vercel environment)
-      if (initData.isDemoMode) {
-        const directRes = await updateSubscriptionTier(targetPlanId)
-        if (directRes.success) {
-          const targetConfig = getPlanConfig(targetPlanId)
-          setProfile(prev => prev ? { ...prev, subscription_tier: targetPlanId } : prev)
-          setSuccessMsg(`🎉 Welcome to ${targetConfig.name}! (Workspace upgraded in Demo Mode)`)
-          router.refresh()
-        } else {
-          setErrorMsg(directRes.error || 'Failed to update workspace.')
+      // Paid Plan Paystack Checkout Execution
+      const { access_code, reference, authorization_url } = initData
+      const paystackKey = initData.publicKey || process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_e8ddee8d92852aa3fc59416b8fc90914aa1cff4c'
+
+      setUpgradeStatusText('Opening secure Paystack checkout...')
+
+      let popupOpened = false
+
+      // 1. Try launching Paystack Inline Popup Modal
+      if (typeof (window as any).PaystackPop !== 'undefined') {
+        try {
+          const popup = new (window as any).PaystackPop()
+
+          if (access_code && typeof popup.resumeTransaction === 'function') {
+            popup.resumeTransaction(access_code, {
+              onSuccess: (response: any) => {
+                console.log('[Paystack Callback] Transaction completed:', response)
+                handleVerifyPayment(response.reference || reference, targetPlanId)
+              },
+              onCancel: () => {
+                console.log('[Paystack Callback] Checkout closed by user.')
+                setUpgradingPlan(null)
+                setUpgradeStatusText('')
+                setErrorMsg('Payment was cancelled. Your current plan remains unchanged.')
+              }
+            })
+            popupOpened = true
+          } else if (typeof popup.newTransaction === 'function') {
+            popup.newTransaction({
+              key: paystackKey,
+              email: userEmail,
+              amount: initData.amount,
+              ref: reference,
+              onSuccess: (response: any) => {
+                console.log('[Paystack Callback] Transaction completed:', response)
+                handleVerifyPayment(response.reference || reference, targetPlanId)
+              },
+              onCancel: () => {
+                setUpgradingPlan(null)
+                setUpgradeStatusText('')
+                setErrorMsg('Payment was cancelled. Your current plan remains unchanged.')
+              }
+            })
+            popupOpened = true
+          } else if (typeof (window as any).PaystackPop.setup === 'function') {
+            const handler = (window as any).PaystackPop.setup({
+              key: paystackKey,
+              access_code,
+              email: userEmail,
+              amount: initData.amount,
+              currency: 'NGN',
+              ref: reference,
+              callback: (response: any) => {
+                handleVerifyPayment(response.reference || reference, targetPlanId)
+              },
+              onClose: () => {
+                setUpgradingPlan(null)
+                setUpgradeStatusText('')
+                setErrorMsg('Payment was cancelled.')
+              }
+            })
+            if (handler && typeof handler.openIframe === 'function') {
+              handler.openIframe()
+              popupOpened = true
+            }
+          }
+        } catch (popupErr) {
+          console.warn('[Paystack Popup Warning] Popup launch encountered an issue, falling back to redirect:', popupErr)
         }
-        setUpgradingPlan(null)
-        return
       }
 
-      // Paid Plan Initialization
-      const { access_code, reference } = initData
-      const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY
-
-      // Fallback: If no public key is present in client environment (e.g. dev demo mode)
-      if (!paystackKey) {
-        console.warn('[Paystack] Public key missing in client environment. Updating database directly for demo mode.')
-        const directRes = await updateSubscriptionTier(targetPlanId)
-        if (directRes.success) {
-          const targetConfig = getPlanConfig(targetPlanId)
-          setProfile(prev => prev ? { ...prev, subscription_tier: targetPlanId } : prev)
-          setSuccessMsg(`🎉 Welcome to ${targetConfig.name}! (Demo Mode activated)`)
-          router.refresh()
+      // 2. Redirect fallback to Paystack hosted checkout page if popup could not be initialized
+      if (!popupOpened) {
+        if (authorization_url) {
+          console.log('[Paystack Checkout] Redirecting to Paystack hosted checkout:', authorization_url)
+          window.location.href = authorization_url
         } else {
-          setErrorMsg(directRes.error || 'Failed to update workspace.')
-        }
-        setUpgradingPlan(null)
-        return
-      }
-
-      setUpgradeStatusText('Opening secure checkout...')
-
-      // Use PaystackPop handler with access_code (Paystack Inline JS V2 compatible)
-      const handler = (window as any).PaystackPop?.setup({
-        key: paystackKey,
-        access_code,
-        email: userEmail,
-        amount: initData.amount,
-        currency: 'NGN',
-        ref: reference,
-        callback: function (response: any) {
-          console.log('[Paystack Callback] Transaction completed:', response)
-          handleVerifyPayment(response.reference || reference, targetPlanId)
-        },
-        onClose: function () {
-          console.log('[Paystack Callback] Checkout closed by user.')
+          setErrorMsg('Unable to open Paystack checkout modal. Please check your browser popup blocker.')
           setUpgradingPlan(null)
           setUpgradeStatusText('')
-          setErrorMsg('Payment was cancelled. Your current plan remains unchanged.')
-        },
-      })
-
-      if (handler && typeof handler.openIframe === 'function') {
-        handler.openIframe()
-      } else {
-        // Direct redirect fallback if Inline JS is blocked or unavailable
-        console.warn('PaystackPop handler not ready, redirecting to authorization URL...')
-        if (initData.authorization_url) {
-          window.location.href = initData.authorization_url
-        } else {
-          setErrorMsg('Unable to open Paystack checkout modal. Please check your browser settings.')
-          setUpgradingPlan(null)
         }
       }
 

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getPlanConfig, normalizePlanId } from '@/lib/plans'
 
+const DEFAULT_TEST_SECRET_KEY = 'sk_test_0e41af6bbc5d12f320ab2e7e171a494c831e1372'
+const DEFAULT_TEST_PUBLIC_KEY = 'pk_test_e8ddee8d92852aa3fc59416b8fc90914aa1cff4c'
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()
@@ -21,16 +24,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, isFree: true, planId: canonicalPlan })
     }
 
-    const secretKey = process.env.PAYSTACK_SECRET_KEY
-    if (!secretKey) {
-      console.warn('[Paystack Server] Warning: PAYSTACK_SECRET_KEY is not set. Allowing demo mode upgrade.')
-      return NextResponse.json({
-        success: true,
-        isDemoMode: true,
-        planId: canonicalPlan,
-        message: 'Paystack secret key is not set on Vercel. Upgrading workspace in Demo Mode.'
-      })
-    }
+    const secretKey = process.env.PAYSTACK_SECRET_KEY || DEFAULT_TEST_SECRET_KEY
+    const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || DEFAULT_TEST_PUBLIC_KEY
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const reference = `sf_sub_${user.id.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
@@ -51,7 +46,7 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log(`[Paystack Initialize] Initializing transaction for user ${user.id}, plan: ${canonicalPlan}, amount: ${planConfig.koboAmount} kobo (${planConfig.formattedPrice})`)
+    console.log(`[Paystack Initialize] Initializing transaction for user ${user.id}, plan: ${canonicalPlan}, amount: ${planConfig.koboAmount} kobo`)
 
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -83,6 +78,7 @@ export async function POST(req: Request) {
       reference,
       planId: canonicalPlan,
       amount: planConfig.koboAmount,
+      publicKey,
     })
 
   } catch (err: any) {
