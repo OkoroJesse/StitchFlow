@@ -35,9 +35,35 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
   const [regLoading, setRegLoading] = useState(false)
   const [regError, setRegError] = useState<string | null>(null)
   const [regSuccess, setRegSuccess] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState(false)
+  const [resendStatus, setResendStatus] = useState<string | null>(null)
 
   const router = useRouter()
   const supabase = createClient()
+
+  const handleResendVerification = async (targetEmail: string) => {
+    if (!targetEmail) return
+    setResendingEmail(true)
+    setResendStatus(null)
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: targetEmail.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+      if (error) {
+        setResendStatus(error.message)
+      } else {
+        setResendStatus('Verification link sent! Check your inbox and spam folder.')
+      }
+    } catch (err: any) {
+      setResendStatus(err?.message || 'Failed to resend verification link.')
+    } finally {
+      setResendingEmail(false)
+    }
+  }
 
   const switchMode = (newMode: 'login' | 'register') => {
     setMode(newMode)
@@ -64,8 +90,19 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword })
-    if (error) { 
-      setLoginError(error.message)
+    if (error) {
+      // Map common Supabase auth errors to user-friendly messages
+      let friendlyError = error.message
+      if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+        friendlyError = 'Incorrect email or password. Please check your details and try again.'
+      } else if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
+        friendlyError = 'Your email is not verified yet. Please check your inbox (and spam folder) for a verification link. If you did not receive it, contact support.'
+      } else if (error.message.includes('Too many requests') || error.message.includes('rate limit')) {
+        friendlyError = 'Too many login attempts. Please wait a few minutes before trying again.'
+      } else if (error.message.includes('User not found')) {
+        friendlyError = 'No account found with this email. Please create an account first.'
+      }
+      setLoginError(friendlyError)
       setLoginLoading(false) 
     } else {
       const params = new URLSearchParams(window.location.search)
@@ -115,13 +152,36 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
       }
     })
 
-    if (error) { 
-      setRegError(error.message)
+    if (error) {
+      // Map common Supabase auth errors to user-friendly messages
+      let friendlyError = error.message
+      if (error.message.includes('User already registered') || error.message.includes('already been registered')) {
+        friendlyError = 'This email is already registered. Please sign in instead.'
+      } else if (error.message.includes('Password should be at least')) {
+        friendlyError = 'Password must be at least 6 characters long.'
+      } else if (error.message.includes('Unable to validate email address')) {
+        friendlyError = 'Please enter a valid email address.'
+      } else if (error.message.includes('Email rate limit exceeded') || error.message.includes('rate limit')) {
+        friendlyError = 'Too many registration attempts. Please wait a few minutes and try again.'
+      }
+      setRegError(friendlyError)
       setRegLoading(false) 
     } else if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+      // User already exists but Supabase returns a fake success
       setRegError('This email is already registered. Please sign in instead.')
       setRegLoading(false)
+    } else if (data?.session) {
+      // Email confirmation is disabled — user is already logged in, redirect immediately
+      const params = new URLSearchParams(window.location.search)
+      const rawPlan = params.get('plan')
+      const targetPlan = rawPlan ? normalizePlanId(rawPlan) : null
+      const redirectPath = targetPlan && targetPlan !== 'basic'
+        ? `/dashboard/settings?upgradeNow=${targetPlan}`
+        : '/dashboard'
+      router.push(redirectPath)
+      router.refresh()
     } else { 
+      // Email confirmation required — show check email screen
       setRegSuccess(true)
       setRegLoading(false) 
     }
@@ -165,8 +225,33 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
 
               <form className="space-y-4" onSubmit={handleLogin}>
                 {loginError && (
-                  <div className="rounded-xl p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 font-medium">
-                    {loginError}
+                  <div className="rounded-xl p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 font-medium space-y-1.5">
+                    <p>{loginError}</p>
+                    {(loginError.includes('not verified') || loginError.includes('not confirmed') || loginError.includes('verification')) && (
+                      <div className="pt-1 space-y-1">
+                        <p className="text-rose-600 font-normal">
+                          Check your <strong>spam folder</strong> — the verification email may be there.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={resendingEmail || !loginEmail}
+                          onClick={() => handleResendVerification(loginEmail)}
+                          className="text-xs font-bold text-[#4a1525] hover:underline block disabled:opacity-50"
+                        >
+                          {resendingEmail ? 'Sending...' : `Resend verification link to ${loginEmail || 'your email'} →`}
+                        </button>
+                        {resendStatus && (
+                          <p className={`text-[11px] font-semibold mt-1 ${resendStatus.includes('sent') ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {resendStatus}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {loginError.includes('No account found') && (
+                      <button type="button" onClick={() => switchMode('register')} className="text-[#4a1525] font-bold hover:underline">
+                        Create an account →
+                      </button>
+                    )}
                   </div>
                 )}
                 <div>
@@ -207,14 +292,42 @@ export function AuthScreen({ initialMode }: { initialMode: 'login' | 'register' 
             <div>
               {regSuccess ? (
                 <div className="text-center space-y-3 py-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-2 text-xl">
                     ✓
                   </div>
-                  <h2 className="text-xl font-serif font-bold text-stone-900">Check your email!</h2>
-                  <p className="text-xs text-stone-500">
-                    We've sent a verification link to <strong className="text-stone-900">{regEmail}</strong>.
+                  <h2 className="text-xl font-serif font-bold text-stone-900">Check your inbox!</h2>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    We've sent a verification link to{' '}
+                    <strong className="text-stone-900">{regEmail}</strong>.
                   </p>
-                  <button onClick={() => switchMode('login')} className="mt-4 text-xs font-bold text-[#4a1525] hover:underline">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-left">
+                    <p className="text-[11px] font-bold text-amber-800 mb-1">📬 Don't see the email?</p>
+                    <ul className="text-[11px] text-amber-700 space-y-0.5 list-disc list-inside">
+                      <li>Check your <strong>spam / junk</strong> folder</li>
+                      <li>Check your <strong>promotions</strong> tab</li>
+                      <li>Wait up to 5 minutes and refresh</li>
+                      <li>Make sure you entered the correct email</li>
+                    </ul>
+                  </div>
+                  <p className="text-[11px] text-stone-400">
+                    Once verified, come back here and sign in with your password.
+                  </p>
+                  <div className="pt-2 flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={resendingEmail}
+                      onClick={() => handleResendVerification(regEmail)}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#4a1525] bg-[#fbf0f3] hover:bg-[#f5dce4] transition-colors disabled:opacity-50"
+                    >
+                      {resendingEmail ? 'Sending verification link...' : 'Resend verification email'}
+                    </button>
+                    {resendStatus && (
+                      <p className={`text-[11px] font-semibold ${resendStatus.includes('sent') ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {resendStatus}
+                      </p>
+                    )}
+                  </div>
+                  <button onClick={() => switchMode('login')} className="mt-2 text-xs font-bold text-[#4a1525] hover:underline">
                     Back to Sign In →
                   </button>
                 </div>
